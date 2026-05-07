@@ -1,8 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Dimensions,
   Image,
+  Modal,
+  PanResponder,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -12,36 +17,63 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
-import BottomTabBar from "../../components/navigation/BottomTabBar";
-
 const TOTAL_SECONDS = 10 * 60;
 
 export default function HomeScreen() {
-  const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [hasActiveReservation, setHasActiveReservation] = useState(false);
+  const [expiredModalVisible, setExpiredModalVisible] = useState(false);
 
-  // change later (kur lidhim me backend)
   const hasNotifications = false;
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 0) return TOTAL_SECONDS;
-        return prev - 1;
-      });
-    }, 1000);
+  useFocusEffect(
+    useCallback(() => {
+      let timer: ReturnType<typeof setInterval> | null = null;
 
-    return () => clearInterval(timer);
-  }, []);
+      const updateCountdown = async () => {
+        const savedStartTime = await AsyncStorage.getItem("reservationStartTime");
 
-  const minutes = Math.floor(secondsLeft / 60);
-  const seconds = secondsLeft % 60;
+        if (!savedStartTime) {
+          setHasActiveReservation(false);
+          setSecondsLeft(null);
+          return;
+        }
+
+        const now = Date.now();
+        const elapsed = Math.floor((now - Number(savedStartTime)) / 1000);
+        const remaining = TOTAL_SECONDS - elapsed;
+
+        if (remaining <= 0) {
+          await AsyncStorage.removeItem("reservationStartTime");
+          setHasActiveReservation(false);
+          setSecondsLeft(null);
+          setExpiredModalVisible(true);
+          return;
+        }
+
+        setHasActiveReservation(true);
+        setSecondsLeft(remaining);
+      };
+
+      updateCountdown();
+
+      timer = setInterval(() => {
+        updateCountdown();
+      }, 1000);
+
+      return () => {
+        if (timer) clearInterval(timer);
+      };
+    }, [])
+  );
+
+  const minutes = secondsLeft !== null ? Math.floor(secondsLeft / 60) : 0;
+  const seconds = secondsLeft !== null ? secondsLeft % 60 : 0;
   const timeText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Image
@@ -54,11 +86,11 @@ export default function HomeScreen() {
           <Pressable
             style={styles.bellWrapper}
             onPress={() => {
-                if (hasNotifications) {
-                router.push("/notifications");
-                } else {
-                router.push("/no-notifications");
-                }
+              if (hasNotifications) {
+                router.push("(screens)/notifications");
+              } else {
+                router.push("(screens)/no-notifications");
+              }
             }}
           >
             <Ionicons name="notifications-outline" size={28} color="#fff" />
@@ -66,13 +98,6 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* COUNTDOWN */}
-        <View style={styles.countdownWrapper}>
-          <CountdownRing secondsLeft={secondsLeft} />
-          <Text style={styles.countdownText}>{timeText}</Text>
-        </View>
-
-        {/* CURRENT RESERVATION */}
         <Text style={styles.sectionTitle}>Rezervimi Aktual</Text>
 
         <View style={styles.currentCard}>
@@ -94,7 +119,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* PARTNERS */}
         <Text style={styles.sectionTitle}>Bashkëpunimet Tona</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -116,12 +140,127 @@ export default function HomeScreen() {
         </ScrollView>
       </ScrollView>
 
-      <BottomTabBar activeTab="home" />
+      {/* Draggable countdown rendered outside ScrollView so it floats freely */}
+      {hasActiveReservation && secondsLeft !== null && (
+        <DraggableCountdown secondsLeft={secondsLeft} timeText={timeText} />
+      )}
+
+      <Modal visible={expiredModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.expiredModal}>
+            <View style={styles.expiredCircle}>
+              <Ionicons name="time-outline" size={52} color="#FFFFFF" />
+            </View>
+
+            <Text style={styles.expiredTitle}>
+              Koha e rezervimit përfundoi.
+            </Text>
+
+            <Text style={styles.expiredText}>
+              Nëse nuk keni arritur në parkimin e zgjedhur, ju nuk do të keni
+              një vend të rezervuar.
+            </Text>
+
+            <Pressable
+              style={styles.okButton}
+              onPress={() => setExpiredModalVisible(false)}
+            >
+              <Text style={styles.okButtonText}>Në rregull</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-/* COUNTDOWN RING */
+// ─── Draggable Countdown ───────────────────────────────────────────────────────
+
+function DraggableCountdown({
+  secondsLeft,
+  timeText,
+}: {
+  secondsLeft: number;
+  timeText: string;
+}) {
+  const WIDGET_SIZE = 82;
+  const SCREEN_WIDTH = Dimensions.get("window").width;
+  const SCREEN_HEIGHT = Dimensions.get("window").height;
+  const SNAP_MARGIN = 12;
+
+  // Top boundary: below the header (~90px from top)
+  const MIN_Y = 90;
+  // Bottom boundary: tab bar is 61px tall, sits 17px from bottom → 78px total.
+  // Add a small 10px gap so the widget doesn't touch the tab bar.
+  const MAX_Y = SCREEN_HEIGHT - WIDGET_SIZE - 78 - 10;
+
+  const initialX = SCREEN_WIDTH - WIDGET_SIZE - SNAP_MARGIN;
+  const initialY = 130;
+
+  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+  const panRef = useRef({ x: initialX, y: initialY });
+
+  useEffect(() => {
+    const id = pan.addListener((val) => {
+      panRef.current = val;
+    });
+    return () => pan.removeListener(id);
+  }, [pan]);
+
+  const clampY = (y: number) => Math.min(Math.max(y, MIN_Y), MAX_Y);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset({ x: panRef.current.x, y: panRef.current.y });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: (_, gesture) => {
+        const rawY = panRef.current.y + gesture.dy - panRef.current.y;
+        // Let Animated.event handle x; manually clamp y
+        pan.x.setValue(panRef.current.x + gesture.dx - panRef.current.x);
+        const offsetY = (pan.y as any)._offset ?? 0;
+        pan.y.setValue(Math.min(Math.max(gesture.dy, MIN_Y - offsetY), MAX_Y - offsetY));
+      },
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+
+        const currentX = panRef.current.x;
+        const currentY = clampY(panRef.current.y);
+
+        const snapX =
+          currentX + WIDGET_SIZE / 2 < SCREEN_WIDTH / 2
+            ? SNAP_MARGIN
+            : SCREEN_WIDTH - WIDGET_SIZE - SNAP_MARGIN;
+
+        Animated.spring(pan, {
+          toValue: { x: snapX, y: currentY },
+          useNativeDriver: false,
+          friction: 6,
+          tension: 80,
+        }).start();
+      },
+    })
+  ).current;
+
+  return (
+    <Animated.View
+      style={[
+        styles.draggableContainer,
+        { transform: pan.getTranslateTransform() },
+      ]}
+      {...panResponder.panHandlers}
+    >
+      <CountdownRing secondsLeft={secondsLeft} />
+      <Text style={styles.countdownText}>{timeText}</Text>
+    </Animated.View>
+  );
+}
+
+// ─── Countdown Ring ────────────────────────────────────────────────────────────
+
 function CountdownRing({ secondsLeft }: { secondsLeft: number }) {
   const size = 82;
   const strokeWidth = 12;
@@ -140,7 +279,6 @@ function CountdownRing({ secondsLeft }: { secondsLeft: number }) {
         strokeWidth={strokeWidth}
         fill="#000"
       />
-
       <Circle
         cx={size / 2}
         cy={size / 2}
@@ -159,7 +297,8 @@ function CountdownRing({ secondsLeft }: { secondsLeft: number }) {
   );
 }
 
-/* PARTNER CARD */
+// ─── Partner Card ──────────────────────────────────────────────────────────────
+
 function PartnerCard({ spaces, spacesColor, name, address, price }: any) {
   return (
     <View style={styles.partnerCard}>
@@ -176,7 +315,8 @@ function PartnerCard({ spaces, spacesColor, name, address, price }: any) {
   );
 }
 
-/* STYLES */
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
 
@@ -187,6 +327,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
+    top: -25,
     height: 70,
     alignItems: "center",
     justifyContent: "center",
@@ -218,14 +359,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#ED0000",
   },
 
-  countdownWrapper: {
+  // Draggable floating widget
+  draggableContainer: {
     position: "absolute",
-    right: 20,
-    top: 130,
     width: 82,
     height: 82,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 999,
   },
 
   countdownText: {
@@ -238,7 +379,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: "#fff",
     fontSize: 26,
-    marginTop: 65,
+    marginTop: 25,
     marginBottom: 15,
   },
 
@@ -347,5 +488,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     marginTop: 10,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+
+  expiredModal: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 26,
+    alignItems: "center",
+  },
+
+  expiredCircle: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: "#ED0000",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 22,
+  },
+
+  expiredTitle: {
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+
+  expiredText: {
+    color: "#000000",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 21,
+  },
+
+  okButton: {
+    backgroundColor: "#ED0000",
+    borderRadius: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    marginTop: 24,
+  },
+
+  okButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

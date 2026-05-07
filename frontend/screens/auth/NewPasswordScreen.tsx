@@ -8,10 +8,10 @@ import {
   View,
 } from "react-native";
 
-import AuthButton from "../../components/auth/AuthButton";
-import AuthHeader from "../../components/auth/AuthHeader";
-import AuthLayout from "../../components/auth/AuthLayout";
-import PasswordInput from "../../components/auth/PasswordInput";
+import AuthButton from "@/components/auth/AuthButton";
+import AuthHeader from "@/components/auth/AuthHeader";
+import AuthLayout from "@/components/auth/AuthLayout";
+import PasswordInput from "@/components/auth/PasswordInput";
 
 export default function NewPasswordScreen() {
   const [password, setPassword] = useState("");
@@ -32,7 +32,7 @@ export default function NewPasswordScreen() {
 
     console.log("Password changed successfully");
     Alert.alert("Sukses", "Fjalëkalimi u ndryshua me sukses.");
-    router.push("/login" as any);
+    router.replace("/(auth)/login");
   };
 
   return (

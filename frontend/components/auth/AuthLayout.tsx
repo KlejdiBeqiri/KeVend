@@ -3,11 +3,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
-  View,
 } from "react-native";
 import colors from "../../constants/colors";
-import fonts from "../../constants/fonts";
 
 type Props = {
   children: React.ReactNode;
@@ -18,9 +17,15 @@ export default function AuthLayout({ children }: Props) {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.container}>{children}</View>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -35,9 +40,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: 30, 
-    paddingTop: 0, 
+    paddingHorizontal: 30,
+    paddingTop: 0,
   },
 });

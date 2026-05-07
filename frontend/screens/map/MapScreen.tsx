@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   Image,
@@ -11,8 +12,6 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-
-import BottomTabBar from "../../components/navigation/BottomTabBar";
 
 type PropertyLocation = {
   id: number;
@@ -75,6 +74,8 @@ export default function MapScreen() {
   const [searchPin, setSearchPin] = useState<PropertyLocation | null>(null);
   const [showCard, setShowCard] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const hasNewNotifications = false;
 
   const startsWithSearch = (value: string, text: string) => {
     return value
@@ -153,7 +154,7 @@ export default function MapScreen() {
             title={property.name}
             description={property.address}
             onPress={() => {
-              setSearchText(""); // ✅ CLEAR on map pin press
+              setSearchText("");
               focusLocation(property);
             }}
           />
@@ -180,9 +181,18 @@ export default function MapScreen() {
         />
       </View>
 
-      <Pressable style={styles.notificationButton}>
+      <Pressable
+        style={styles.notificationButton}
+        onPress={() => {
+          if (hasNewNotifications) {
+            router.push("(screens)/notifications");
+          } else {
+            router.push("(screens)/no-notifications");
+          }
+        }}
+      >
         <Ionicons name="notifications" size={24} color="#fff" />
-        <View style={styles.redDot} />
+        {hasNewNotifications && <View style={styles.redDot} />}
       </Pressable>
 
       <View style={styles.searchBox}>
@@ -214,7 +224,7 @@ export default function MapScreen() {
               key={property.id}
               style={styles.suggestionItem}
               onPress={() => {
-                setSearchText(property.name); // ✅ KEEP text
+                setSearchText(property.name);
                 focusLocation(property);
               }}
             >
@@ -232,7 +242,23 @@ export default function MapScreen() {
       )}
 
       {showCard && selectedProperty && (
-        <View style={styles.parkingCard}>
+        <Pressable
+          style={styles.parkingCard}
+          onPress={() =>
+            router.push({
+              pathname: "/parking-detail",
+              params: {
+                name: selectedProperty.name,
+                address: selectedProperty.address,
+                hours: selectedProperty.hours,
+                price: selectedProperty.price,
+                available: selectedProperty.available,
+                rating: selectedProperty.rating,
+                reviews: selectedProperty.reviews,
+              },
+            })
+          }
+        >
           <Image
             source={{
               uri: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a",
@@ -262,10 +288,9 @@ export default function MapScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </Pressable>
       )}
 
-      <BottomTabBar activeTab="map" />
     </SafeAreaView>
   );
 }
@@ -357,7 +382,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
 
-  cardImage: { width: 135 },
+  cardImage: { width: 135, borderTopLeftRadius: 22, borderBottomLeftRadius: 21, },
 
   cardContent: { flex: 1, padding: 10 },
 

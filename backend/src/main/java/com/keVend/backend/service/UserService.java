@@ -1,6 +1,7 @@
 package com.keVend.backend.service;
 
 import com.keVend.backend.audit.AuditLog;
+import com.keVend.backend.dto.UpdateProfileRequest;
 import com.keVend.backend.model.User;
 import com.keVend.backend.repository.EmailVerificationTokenRepository;
 import com.keVend.backend.repository.RefreshTokenRepository;
@@ -68,5 +69,13 @@ public class UserService {
         user.setFailedLoginAttempts(0);
         userRepository.save(user);
         auditLog.accountAnonymized(user.getId());
+    }
+
+    @Transactional
+    public void updateProfile(User user, UpdateProfileRequest request) {
+        if (request.getName() != null)    user.setName(request.getName());
+        if (request.getSurname() != null) user.setSurname(request.getSurname());
+        if (request.getPhone() != null)   user.setPhone(request.getPhone());
+        userRepository.save(user);
     }
 }

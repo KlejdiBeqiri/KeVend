@@ -1,20 +1,24 @@
 import React from "react";
 import { Image, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-import ScreenHeader from "../../components/common/ScreenHeader";
-import BottomTabBar from "../../components/navigation/BottomTabBar";
-import BackButton from "../../components/common/BackButton";
-import fonts from "../../constants/fonts";
+import BackButton from "@/components/common/BackButton";
+import fonts from "@/constants/fonts";
 
 export default function InvoicesScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      
-      {/* BACK BUTTON */}
-      <BackButton top={130} left={18} />
 
-      {/* HEADER */}
-      <ScreenHeader />
+      {/* BACK BUTTON */}
+      <BackButton />
+
+      {/* LOGO */}
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("../../assets/logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
 
       {/* TITLE */}
       <Text style={styles.title}>Faturat e Mia</Text>
@@ -32,8 +36,6 @@ export default function InvoicesScreen() {
         </Text>
       </View>
 
-      {/* BOTTOM TAB */}
-      <BottomTabBar activeTab="account" />
     </SafeAreaView>
   );
 }
@@ -44,31 +46,52 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
 
+  logoContainer: {
+    position: "absolute",
+    top: 55,
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  logo: {
+    width: 150,
+    height: 70,
+  },
+
   title: {
-    marginTop: 30,
-    marginLeft: 20,
-    color: "#FFFFFF",
+    position: "absolute",
+    top: 155,
+    left: 32,
     fontSize: 29,
+    lineHeight: 37,
     letterSpacing: -1,
+    color: "#FFFFFF",
     fontFamily: fonts.interRegular,
   },
 
   emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
+    position: "absolute",
+    top: "39%",
+    alignSelf: "center",
     alignItems: "center",
-    paddingBottom: 100,
+    width: "100%",
   },
 
   emptyImage: {
     width: 143,
     height: 126,
-    marginBottom: 20,
+    marginTop: 100,
+    marginBottom: 35,
   },
 
   emptyText: {
-    color: "#FFFFFF",
+    width: 396,
+    maxWidth: "90%",
     fontSize: 14,
+    lineHeight: 27,
+    letterSpacing: -1,
+    color: "#FFFFFF",
     textAlign: "center",
     fontFamily: fonts.interRegular,
   },

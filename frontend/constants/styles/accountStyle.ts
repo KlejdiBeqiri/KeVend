@@ -9,12 +9,12 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 115,
+    paddingBottom: 45,
   },
 
   content: {
     alignItems: "center",
-    paddingTop: 25,
+    paddingTop: 20,
   },
 
   avatarWrapper: {
@@ -28,24 +28,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  editButton: {
-    position: "absolute",
-    right: 2,
-    bottom: 6,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#1DBAC7",
-    borderWidth: 3,
-    borderColor: "#000000",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
   section: {
     width: "100%",
     paddingHorizontal: 27,
-    marginTop: 26,
+    marginTop: 20,
   },
 
   sectionTitle: {
@@ -100,6 +86,7 @@ const styles = StyleSheet.create({
   },
 
   inputText: {
+      flex: 1,
     color: "#E1E1E1",
     fontSize: 14,
     fontFamily: fonts.interRegular,
@@ -107,7 +94,7 @@ const styles = StyleSheet.create({
 
   passwordPressable: {
     width: "48%",
-    marginTop: 25,
+    alignSelf: "flex-end",  // ← replaces marginTop: 25
   },
 
   passwordButton: {
@@ -119,7 +106,7 @@ const styles = StyleSheet.create({
 
   passwordButtonText: {
     color: colors.white,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: fonts.interSemiBold,
   },
 
@@ -189,7 +176,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 90,
+    marginTop: 50,
     marginBottom: 40,
     gap: 15,
   },

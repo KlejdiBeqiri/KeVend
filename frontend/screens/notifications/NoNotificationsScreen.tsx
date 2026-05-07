@@ -1,8 +1,7 @@
 import React from "react";
 import { Image, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-import BottomTabBar from "../../components/navigation/BottomTabBar";
-import BackButton from "../../components/common/BackButton";
+import BackButton from "@/components/common/BackButton";
 
 export default function NoNotificationsScreen() {
   return (
@@ -34,9 +33,6 @@ export default function NoNotificationsScreen() {
           Ju nuk keni asnje njoftim per momentin.
         </Text>
       </View>
-
-      {/* BOTTOM TAB */}
-      <BottomTabBar activeTab="list" />
     </SafeAreaView>
   );
 }

@@ -182,6 +182,9 @@ export default function MapGuestScreen() {
               returnKeyType="search"
               onSubmitEditing={handleSearch}
             />
+                    <Pressable onPress={handleSearch}>
+                      <Ionicons name="arrow-forward-circle" size={24} color="#ED0000" />
+                    </Pressable>
           </View>
 
           {showSuggestions && filteredSuggestions.length > 0 && (
@@ -211,7 +214,7 @@ export default function MapGuestScreen() {
           )}
 
           <View style={styles.authPanel}>
-            <Pressable onPress={() => router.push("/login" as any)}>
+            <Pressable onPress={() => router.replace("/(auth)/login")}>
               <LinearGradient
                 colors={["#3080FF", "#00358B", "#00358B", "#3080FF"]}
                 start={{ x: 0, y: 0 }}
@@ -224,7 +227,7 @@ export default function MapGuestScreen() {
 
             <Text style={styles.orText}>OSE</Text>
 
-            <Pressable onPress={() => router.push("/register" as any)}>
+            <Pressable onPress={() => router.replace("/(auth)/register")}>
               <LinearGradient
                 colors={["#3080FF", "#00358B", "#00358B", "#3080FF"]}
                 start={{ x: 0, y: 0 }}

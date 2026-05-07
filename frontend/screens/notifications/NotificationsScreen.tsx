@@ -9,8 +9,7 @@ import {
   View,
 } from "react-native";
 
-import BackButton from "../../components/common/BackButton";
-import BottomTabBar from "../../components/navigation/BottomTabBar";
+import BackButton from "@/components/common/BackButton";
 
 type NotificationItem = {
   id: string;
@@ -103,7 +102,6 @@ export default function NotificationsScreen() {
         ))}
       </ScrollView>
 
-      <BottomTabBar activeTab="home" />
     </SafeAreaView>
   );
 }

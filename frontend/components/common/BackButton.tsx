@@ -6,14 +6,15 @@ import { router } from "expo-router";
 type Props = {
   top?: number;
   left?: number;
+  href?: string;
 };
 
-export default function BackButton({ top = 78, left = 20 }: Props) {
+export default function BackButton({ top = 78, left = 20, href }: Props) {
   return (
     <Pressable
       style={[styles.container, { top, left }]}
-      onPress={() => router.back()}
-      hitSlop={10} 
+      onPress={() => (href ? router.replace(href as any) : router.back())}
+      hitSlop={10}
     >
       <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
     </Pressable>

@@ -11,12 +11,12 @@ import {
   View,
 } from "react-native";
 
-import AuthButton from "../../components/auth/AuthButton";
-import AuthFooter from "../../components/auth/AuthFooter";
-import AuthHeader from "../../components/auth/AuthHeader";
-import AuthLayout from "../../components/auth/AuthLayout";
-import colors from "../../constants/colors";
-import fonts from "../../constants/fonts";
+import AuthButton from "@/components/auth/AuthButton";
+import AuthFooter from "@/components/auth/AuthFooter";
+import AuthHeader from "@/components/auth/AuthHeader";
+import AuthLayout from "@/components/auth/AuthLayout";
+import colors from "@/constants/colors";
+import fonts from "@/constants/fonts";
 
 export default function VerifyCodeScreen() {
   const correctCode = "12345";
@@ -50,7 +50,7 @@ export default function VerifyCodeScreen() {
 
     if (enteredCode.length === 5 && enteredCode === correctCode) {
       Keyboard.dismiss();
-      router.push("/new-password" as any);
+      router.push("/(auth)/new-password");
     }
   };
 
@@ -68,7 +68,7 @@ export default function VerifyCodeScreen() {
 
     if (enteredCode === correctCode) {
       Keyboard.dismiss();
-      router.push("/change-password" as any);
+      router.push("/(auth)/new-password");
     }
   };
 

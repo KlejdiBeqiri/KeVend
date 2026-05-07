@@ -1,21 +1,66 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React from "react";
-import { Pressable, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Pressable, StyleSheet } from "react-native";
 
 const tabs = [
-  { name: "map", route: "/map", icon: "map-outline", family: "material" },
-  { name: "list", route: "/reservation-history", icon: "list-outline", family: "ion" },
-  { name: "home", route: "/home", icon: "home-outline", family: "ion" },
-  { name: "account", route: "/account", icon: "person-outline", family: "ion" },
+  { name: "map", icon: "map-outline", family: "material" },
+  { name: "reservation-history", icon: "list-outline", family: "ion" },
+  { name: "home", icon: "home-outline", family: "ion" },
+  { name: "account", icon: "person-outline", family: "ion" },
 ];
 
-type Props = {
-  activeTab: "map" | "list" | "home" | "account";
+type TabItemProps = {
+  tab: (typeof tabs)[number];
+  isActive: boolean;
+  onPress: () => void;
 };
 
-export default function BottomTabBar({ activeTab }: Props) {
+function TabItem({ tab, isActive, onPress }: TabItemProps) {
+  const bgAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const scaleAnim = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(bgAnim, {
+        toValue: isActive ? 1 : 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: isActive ? 1.08 : 1,
+        useNativeDriver: true,
+        speed: 20,
+        bounciness: 6,
+      }),
+    ]).start();
+  }, [isActive]);
+
+  return (
+    <Pressable onPress={onPress} style={styles.tab}>
+      <Animated.View
+        style={[
+          styles.activePill,
+          { opacity: bgAnim },
+        ]}
+      />
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        {tab.family === "material" ? (
+          <MaterialCommunityIcons
+            name={tab.icon as any}
+            size={26}
+            color="#FFFFFF"
+          />
+        ) : (
+          <Ionicons name={tab.icon as any} size={26} color="#FFFFFF" />
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+export default function BottomTabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <LinearGradient
       colors={["#3080FF", "#00358B", "#00358B", "#3080FF"]}
@@ -25,24 +70,15 @@ export default function BottomTabBar({ activeTab }: Props) {
       style={styles.container}
     >
       {tabs.map((tab) => {
-        const isActive = activeTab === tab.name;
+        const isActive = state.routes[state.index]?.name === tab.name;
 
         return (
-          <Pressable
+          <TabItem
             key={tab.name}
-            onPress={() => router.push(tab.route as any)}
-            style={[styles.tab, isActive && styles.activeTab]}
-          >
-            {tab.family === "material" ? (
-              <MaterialCommunityIcons
-                name={tab.icon as any}
-                size={26}
-                color="#FFFFFF"
-              />
-            ) : (
-              <Ionicons name={tab.icon as any} size={26} color="#FFFFFF" />
-            )}
-          </Pressable>
+            tab={tab}
+            isActive={isActive}
+            onPress={() => navigation.navigate(tab.name)}
+          />
         );
       })}
     </LinearGradient>
@@ -66,7 +102,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 8,
   },
-
   tab: {
     width: 69,
     height: 43,
@@ -74,8 +109,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  activeTab: {
+  activePill: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.36)",
+    borderRadius: 50,
   },
 });

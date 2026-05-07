@@ -10,11 +10,11 @@ import {
   View,
 } from "react-native";
 
-import AuthButton from "../../components/auth/AuthButton";
-import AuthHeader from "../../components/auth/AuthHeader";
-import AuthLayout from "../../components/auth/AuthLayout";
-import PasswordInput from "../../components/auth/PasswordInput";
-import colors from "../../constants/colors";
+import AuthButton from "@/components/auth/AuthButton";
+import AuthHeader from "@/components/auth/AuthHeader";
+import AuthLayout from "@/components/auth/AuthLayout";
+import PasswordInput from "@/components/auth/PasswordInput";
+import colors from "@/constants/colors";
 
 export default function ChangePasswordScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -39,7 +39,7 @@ export default function ChangePasswordScreen() {
 
     console.log("Password changed successfully");
     Alert.alert("Sukses", "Fjalëkalimi u ndryshua me sukses.");
-    router.push("/login" as any);
+    router.replace("/(auth)/login");
   };
 
   return (
@@ -81,7 +81,7 @@ export default function ChangePasswordScreen() {
           <View style={styles.optionsRow}>
             <View />
             <TouchableOpacity
-              onPress={() => router.push("/forgot-password" as any)}
+              onPress={() => router.push("/(auth)/forgot-password")}
             >
               <Text style={styles.forgotText}>Ke harruar fjalëkalimin?</Text>
             </TouchableOpacity>

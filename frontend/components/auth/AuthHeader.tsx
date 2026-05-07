@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: fonts.sansationLight,
     textAlign: "center",
-    opacity: 0.85,
-    maxWidth: 260,    
+    opacity: 0.9,
+    maxWidth: 400,
   },
 });

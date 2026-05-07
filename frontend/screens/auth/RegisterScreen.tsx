@@ -2,19 +2,17 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Keyboard,
   StyleSheet,
   Text,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
-import api from "../../api";
-import AuthButton from "../../components/auth/AuthButton";
-import AuthFooter from "../../components/auth/AuthFooter";
-import AuthHeader from "../../components/auth/AuthHeader";
-import AuthLayout from "../../components/auth/AuthLayout";
-import CustomInput from "../../components/auth/CustomInput";
-import PasswordInput from "../../components/auth/PasswordInput";
+import api from "@/api";
+import AuthButton from "@/components/auth/AuthButton";
+import AuthFooter from "@/components/auth/AuthFooter";
+import AuthHeader from "@/components/auth/AuthHeader";
+import AuthLayout from "@/components/auth/AuthLayout";
+import CustomInput from "@/components/auth/CustomInput";
+import PasswordInput from "@/components/auth/PasswordInput";
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
@@ -57,7 +55,7 @@ export default function RegisterScreen() {
       });
 
       console.log("Registered successfully:", response.data);
-      router.push("/login" as any);
+      router.replace("/(tabs)/map");
     } catch (err: any) {
       if (err.response?.data?.message) {
         setError(err.response.data.message);
@@ -70,78 +68,74 @@ export default function RegisterScreen() {
   };
 
   const goToLogin = () => {
-    router.push("/login" as any);
+    router.replace("/(auth)/login");
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={{ flex: 1 }}>
-        <AuthLayout>
-          <View style={styles.headerContainer}>
-            <AuthHeader title="Regjistrohu" compact />
-          </View>
-          <View style={styles.formContainer}>
-            <CustomInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="E-mail"
-              icon="email"
-            />
-            <CustomInput
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Emri i përdoruesit"
-              icon="person-outline"
-            />
-            <CustomInput
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Mbiemri i përdoruesit"
-              icon="person-outline"
-            />
-            <CustomInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="Numri i telefonit"
-              icon="phone"
-            />
-            <PasswordInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Fjalëkalimi"
-              secureTextEntry={securePassword}
-              onToggleSecure={() => setSecurePassword(!securePassword)}
-            />
-            <PasswordInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Konfirmo fjalëkalimin"
-              secureTextEntry={secureConfirmPassword}
-              onToggleSecure={() =>
-                setSecureConfirmPassword(!secureConfirmPassword)
-              }
-            />
-          </View>
-
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
-
-          <View style={styles.buttonContainer}>
-            {loading ? (
-              <ActivityIndicator size="large" color="#000" />
-            ) : (
-              <AuthButton title="Regjistrohu" onPress={handleRegister} />
-            )}
-          </View>
-          <AuthFooter
-            text="Keni një llogari? "
-            linkText="Kyçu."
-            onPress={goToLogin}
-          />
-        </AuthLayout>
+    <AuthLayout>
+      <View style={styles.headerContainer}>
+        <AuthHeader title="Regjistrohu" compact />
       </View>
-    </TouchableWithoutFeedback>
+      <View style={styles.formContainer}>
+        <CustomInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="E-mail"
+          icon="email"
+        />
+        <CustomInput
+          value={firstName}
+          onChangeText={setFirstName}
+          placeholder="Emri i përdoruesit"
+          icon="person-outline"
+        />
+        <CustomInput
+          value={lastName}
+          onChangeText={setLastName}
+          placeholder="Mbiemri i përdoruesit"
+          icon="person-outline"
+        />
+        <CustomInput
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="Numri i telefonit"
+          icon="phone"
+        />
+        <PasswordInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Fjalëkalimi"
+          secureTextEntry={securePassword}
+          onToggleSecure={() => setSecurePassword(!securePassword)}
+        />
+        <PasswordInput
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          placeholder="Konfirmo fjalëkalimin"
+          secureTextEntry={secureConfirmPassword}
+          onToggleSecure={() =>
+            setSecureConfirmPassword(!secureConfirmPassword)
+          }
+        />
+      </View>
+
+      {error ? (
+        <Text style={styles.errorText}>{error}</Text>
+      ) : null}
+
+      <View style={styles.buttonContainer}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#000" />
+        ) : (
+          <AuthButton title="Regjistrohu" onPress={handleRegister} />
+        )}
+      </View>
+      <AuthFooter
+        text="Keni një llogari? "
+        linkText="Kyçu."
+        onPress={goToLogin}
+      />
+    </AuthLayout>
   );
 }
 

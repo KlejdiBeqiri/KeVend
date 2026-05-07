@@ -11,10 +11,9 @@ import {
   View,
 } from "react-native";
 
-import BottomTabBar from "../../components/navigation/BottomTabBar";
-
 type ReservationItem = {
   id: string;
+  date: string;
   name: string;
   address: string;
   status: "Hapur" | "Mbyllur";
@@ -24,6 +23,7 @@ type ReservationItem = {
 const reservations: ReservationItem[] = [
   {
     id: "1",
+    date: "31 Mars 2026",
     name: "Avni Rustemi Parking",
     address: "Sheshi Avni Rustemi, Tiranë",
     status: "Hapur",
@@ -31,6 +31,7 @@ const reservations: ReservationItem[] = [
   },
   {
     id: "2",
+    date: "31 Mars 2026",
     name: "Avni Rustemi Parking",
     address: "Sheshi Avni Rustemi, Tiranë",
     status: "Mbyllur",
@@ -38,6 +39,7 @@ const reservations: ReservationItem[] = [
   },
   {
     id: "3",
+    date: "11 Mars 2026",
     name: "Avni Rustemi Parking",
     address: "Sheshi Avni Rustemi, Tiranë",
     status: "Hapur",
@@ -45,6 +47,7 @@ const reservations: ReservationItem[] = [
   },
   {
     id: "4",
+    date: "11 Mars 2026",
     name: "Avni Rustemi Parking",
     address: "Sheshi Avni Rustemi, Tiranë",
     status: "Mbyllur",
@@ -53,8 +56,19 @@ const reservations: ReservationItem[] = [
 ];
 
 export default function ReservationsHistoryScreen() {
-  // Later replace this with real notification result from database
   const hasNotifications = false;
+
+  const groupedReservations = reservations.reduce<Record<string, ReservationItem[]>>(
+    (groups, item) => {
+      if (!groups[item.date]) {
+        groups[item.date] = [];
+      }
+
+      groups[item.date].push(item);
+      return groups;
+    },
+    {}
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,7 +85,7 @@ export default function ReservationsHistoryScreen() {
             if (hasNotifications) {
               router.push("/notifications");
             } else {
-              router.push("/noNotifications");
+              router.push("/no-notifications");
             }
           }}
         >
@@ -86,12 +100,16 @@ export default function ReservationsHistoryScreen() {
       >
         <Text style={styles.title}>Rezervime të mëparshme</Text>
 
-        {reservations.map((item) => (
-          <ReservationCard key={item.id} item={item} />
+        {Object.entries(groupedReservations).map(([date, items]) => (
+          <View key={date} style={styles.group}>
+            <Text style={styles.dateText}>{date}</Text>
+
+            {items.map((item) => (
+              <ReservationCard key={item.id} item={item} />
+            ))}
+          </View>
         ))}
       </ScrollView>
-
-      <BottomTabBar activeTab="list" />
     </SafeAreaView>
   );
 }
@@ -150,7 +168,7 @@ const styles = StyleSheet.create({
   bellWrapper: {
     position: "absolute",
     right: 28,
-    top: 42,
+    top: 38,
   },
 
   notificationDot: {
@@ -174,6 +192,18 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 18,
     marginLeft: 12,
+  },
+
+  group: {
+    marginBottom: 12,
+  },
+
+  dateText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 12,
+    marginBottom: 10,
   },
 
   card: {

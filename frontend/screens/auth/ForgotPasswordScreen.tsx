@@ -7,17 +7,17 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 
-import AuthButton from "../../components/auth/AuthButton";
-import AuthHeader from "../../components/auth/AuthHeader";
-import AuthLayout from "../../components/auth/AuthLayout";
-import CustomInput from "../../components/auth/CustomInput";
+import AuthButton from "@/components/auth/AuthButton";
+import AuthHeader from "@/components/auth/AuthHeader";
+import AuthLayout from "@/components/auth/AuthLayout";
+import CustomInput from "@/components/auth/CustomInput";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
 
   const handleSend = () => {
     console.log("Reset password email sent");
-    router.push("/verify-code" as any);
+    router.push("/(auth)/verify-code");
   };
 
   return (
