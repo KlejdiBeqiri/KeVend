@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Keyboard,
   Pressable,
@@ -12,70 +13,46 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-
-type PropertyLocation = {
-  id: number;
-  name: string;
-  address: string;
-  hours: string;
-  price: string;
-  available: string;
-  rating: string;
-  reviews: string;
-  latitude: number;
-  longitude: number;
-};
-
-const properties: PropertyLocation[] = [
-  {
-    id: 1,
-    name: "Parkimi Toptani",
-    address: "Toptani Center, Tiranë",
-    hours: "9:00 - 21:00",
-    price: "2500ALL/24h",
-    available: "3 vende",
-    rating: "4.5",
-    reviews: "1203",
-    latitude: 41.3277,
-    longitude: 19.8216,
-  },
-  {
-    id: 2,
-    name: "Parkimi Skënderbej",
-    address: "Sheshi Skënderbej, Tiranë",
-    hours: "8:00 - 22:00",
-    price: "2000ALL/24h",
-    available: "5 vende",
-    rating: "4.3",
-    reviews: "842",
-    latitude: 41.3275,
-    longitude: 19.8189,
-  },
-  {
-    id: 3,
-    name: "Parkimi Blloku",
-    address: "Blloku, Tiranë",
-    hours: "24 orë",
-    price: "3000ALL/24h",
-    available: "2 vende",
-    rating: "4.7",
-    reviews: "980",
-    latitude: 41.3186,
-    longitude: 19.8156,
-  },
-];
+import { fetchParkingLots, ParkingLot } from "@/services/parkingService";
 
 export default function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
 
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [selectedProperty, setSelectedProperty] =
-    useState<PropertyLocation | null>(null);
-  const [searchPin, setSearchPin] = useState<PropertyLocation | null>(null);
+    useState<ParkingLot | null>(null);
+  const [searchPin, setSearchPin] = useState<ParkingLot | null>(null);
   const [showCard, setShowCard] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const hasNewNotifications = false;
+
+  // ── Fetch parking lots from the backend on every tab focus ──
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      (async () => {
+        try {
+          setLoading(true);
+          const data = await fetchParkingLots();
+          if (!cancelled) setParkingLots(data);
+        } catch (err) {
+          console.warn("Failed to load parking lots", err);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  // ── Search helpers ──
 
   const startsWithSearch = (value: string, text: string) => {
     return value
@@ -84,27 +61,27 @@ export default function MapScreen() {
       .some((word) => word.startsWith(text));
   };
 
-  const filteredSuggestions = properties.filter((property) => {
+  const filteredSuggestions = parkingLots.filter((lot) => {
     const text = searchText.trim().toLowerCase();
     if (!text) return false;
 
     return (
-      startsWithSearch(property.name, text) ||
-      startsWithSearch(property.address, text)
+      startsWithSearch(lot.name, text) ||
+      (lot.zone ? startsWithSearch(lot.zone, text) : false)
     );
   });
 
-  const focusLocation = (property: PropertyLocation) => {
-    setSelectedProperty(property);
-    setSearchPin(property);
+  const focusLocation = (lot: ParkingLot) => {
+    setSelectedProperty(lot);
+    setSearchPin(lot);
     setShowCard(true);
     Keyboard.dismiss();
     setShowSuggestions(false);
 
     mapRef.current?.animateToRegion(
       {
-        latitude: property.latitude,
-        longitude: property.longitude,
+        latitude: lot.latitude,
+        longitude: lot.longitude,
         latitudeDelta: 0.006,
         longitudeDelta: 0.006,
       },
@@ -116,15 +93,30 @@ export default function MapScreen() {
     const text = searchText.trim().toLowerCase();
     if (!text) return;
 
-    const foundProperty = properties.find(
-      (property) =>
-        startsWithSearch(property.name, text) ||
-        startsWithSearch(property.address, text)
+    const found = parkingLots.find(
+      (lot) =>
+        startsWithSearch(lot.name, text) ||
+        (lot.zone ? startsWithSearch(lot.zone, text) : false)
     );
 
-    if (foundProperty) {
-      focusLocation(foundProperty);
+    if (found) {
+      focusLocation(found);
     }
+  };
+
+  // ── Helper to build display strings from API data ──
+
+  const formatAvailable = (lot: ParkingLot) =>
+    `${lot.availableSpots} vende`;
+
+  const formatPrice = (lot: ParkingLot) =>
+    `${lot.pricePerHour}ALL/Ora`;
+
+  const formatHours = (lot: ParkingLot) => {
+    if (!lot.openTime || !lot.closeTime) return "24 orë";
+    const open = lot.openTime.substring(11, 16); // HH:mm from ISO
+    const close = lot.closeTime.substring(11, 16);
+    return `${open} - ${close}`;
   };
 
   return (
@@ -144,18 +136,18 @@ export default function MapScreen() {
           setShowSuggestions(false);
         }}
       >
-        {properties.map((property) => (
+        {parkingLots.map((lot) => (
           <Marker
-            key={property.id}
+            key={lot.id}
             coordinate={{
-              latitude: property.latitude,
-              longitude: property.longitude,
+              latitude: lot.latitude,
+              longitude: lot.longitude,
             }}
-            title={property.name}
-            description={property.address}
+            title={lot.name}
+            description={lot.zone ?? ""}
             onPress={() => {
               setSearchText("");
-              focusLocation(property);
+              focusLocation(lot);
             }}
           />
         ))}
@@ -168,10 +160,16 @@ export default function MapScreen() {
             }}
             pinColor="red"
             title={searchPin.name}
-            description={searchPin.address}
+            description={searchPin.zone ?? ""}
           />
         )}
       </MapView>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#ED0000" />
+        </View>
+      )}
 
       <View style={styles.logoWrapper}>
         <Image
@@ -219,21 +217,21 @@ export default function MapScreen() {
 
       {showSuggestions && filteredSuggestions.length > 0 && (
         <View style={styles.suggestionsBox}>
-          {filteredSuggestions.map((property) => (
+          {filteredSuggestions.map((lot) => (
             <Pressable
-              key={property.id}
+              key={lot.id}
               style={styles.suggestionItem}
               onPress={() => {
-                setSearchText(property.name);
-                focusLocation(property);
+                setSearchText(lot.name);
+                focusLocation(lot);
               }}
             >
               <Ionicons name="location" size={18} color="#ED0000" />
 
               <View style={styles.suggestionTextWrapper}>
-                <Text style={styles.suggestionTitle}>{property.name}</Text>
+                <Text style={styles.suggestionTitle}>{lot.name}</Text>
                 <Text style={styles.suggestionAddress}>
-                  {property.address}
+                  {lot.zone ?? ""}
                 </Text>
               </View>
             </Pressable>
@@ -248,13 +246,7 @@ export default function MapScreen() {
             router.push({
               pathname: "/parking-detail",
               params: {
-                name: selectedProperty.name,
-                address: selectedProperty.address,
-                hours: selectedProperty.hours,
-                price: selectedProperty.price,
-                available: selectedProperty.available,
-                rating: selectedProperty.rating,
-                reviews: selectedProperty.reviews,
+                parkingId: String(selectedProperty.id),
               },
             })
           }
@@ -275,22 +267,21 @@ export default function MapScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.cardInfo}>{selectedProperty.address}</Text>
-            <Text style={styles.cardInfo}>{selectedProperty.hours}</Text>
+            <Text style={styles.cardInfo}>{selectedProperty.zone ?? ""}</Text>
+            <Text style={styles.cardInfo}>{formatHours(selectedProperty)}</Text>
 
             <View style={styles.cardBottom}>
-              <Text style={styles.price}>{selectedProperty.price}</Text>
+              <Text style={styles.price}>{formatPrice(selectedProperty)}</Text>
 
               <View style={styles.availableBadge}>
                 <Text style={styles.availableText}>
-                  {selectedProperty.available}
+                  {formatAvailable(selectedProperty)}
                 </Text>
               </View>
             </View>
           </View>
         </Pressable>
       )}
-
     </SafeAreaView>
   );
 }
@@ -298,6 +289,18 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ECECEC" },
   map: { ...StyleSheet.absoluteFillObject },
+
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.3)",
+    zIndex: 50,
+  },
 
   logoWrapper: {
     position: "absolute",
@@ -382,7 +385,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
 
-  cardImage: { width: 135, borderTopLeftRadius: 22, borderBottomLeftRadius: 21, },
+  cardImage: {
+    width: 135,
+    borderTopLeftRadius: 22,
+    borderBottomLeftRadius: 21,
+  },
 
   cardContent: { flex: 1, padding: 10 },
 

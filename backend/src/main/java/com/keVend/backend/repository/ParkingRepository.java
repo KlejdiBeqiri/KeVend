@@ -22,7 +22,7 @@ public interface ParkingRepository extends JpaRepository<Parking, Long> {
      */
     @Query("""
             SELECT p FROM Parking p
-            WHERE (:zone IS NULL OR LOWER(p.zone) = LOWER(:zone))
+            WHERE (:zone IS NULL OR p.zone = :zone)
               AND (:minPrice IS NULL OR p.pricePerHour >= :minPrice)
               AND (:maxPrice IS NULL OR p.pricePerHour <= :maxPrice)
               AND (:availableOnly = false OR p.status = com.keVend.backend.model.Parking.Status.OPEN)

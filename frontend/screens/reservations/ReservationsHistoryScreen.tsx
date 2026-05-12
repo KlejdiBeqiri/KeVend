@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   SafeAreaView,
@@ -11,60 +12,65 @@ import {
   View,
 } from "react-native";
 
-type ReservationItem = {
-  id: string;
-  date: string;
-  name: string;
-  address: string;
-  status: "Hapur" | "Mbyllur";
-  spots: string;
+import {
+  fetchMyHistory,
+  ReservationData,
+} from "@/services/reservationService";
+
+// ─── Status helpers ─────────────────────────────────────────────────────────────
+
+const isActiveStatus = (status: string) =>
+  status === "SOFT_HOLD" || status === "CONFIRMED";
+
+const statusLabel = (status: string) =>
+  isActiveStatus(status) ? "Hapur" : "Mbyllur";
+
+const formatDate = (iso: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const months = [
+    "Janar", "Shkurt", "Mars", "Prill", "Maj", "Qershor",
+    "Korrik", "Gusht", "Shtator", "Tetor", "Nëntor", "Dhjetor",
+  ];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 };
 
-const reservations: ReservationItem[] = [
-  {
-    id: "1",
-    date: "31 Mars 2026",
-    name: "Avni Rustemi Parking",
-    address: "Sheshi Avni Rustemi, Tiranë",
-    status: "Hapur",
-    spots: "5 vende",
-  },
-  {
-    id: "2",
-    date: "31 Mars 2026",
-    name: "Avni Rustemi Parking",
-    address: "Sheshi Avni Rustemi, Tiranë",
-    status: "Mbyllur",
-    spots: "5 vende",
-  },
-  {
-    id: "3",
-    date: "11 Mars 2026",
-    name: "Avni Rustemi Parking",
-    address: "Sheshi Avni Rustemi, Tiranë",
-    status: "Hapur",
-    spots: "5 vende",
-  },
-  {
-    id: "4",
-    date: "11 Mars 2026",
-    name: "Avni Rustemi Parking",
-    address: "Sheshi Avni Rustemi, Tiranë",
-    status: "Mbyllur",
-    spots: "5 vende",
-  },
-];
+// ─── Component ──────────────────────────────────────────────────────────────────
 
 export default function ReservationsHistoryScreen() {
   const hasNotifications = false;
 
-  const groupedReservations = reservations.reduce<Record<string, ReservationItem[]>>(
-    (groups, item) => {
-      if (!groups[item.date]) {
-        groups[item.date] = [];
-      }
+  const [reservations, setReservations] = useState<ReservationData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-      groups[item.date].push(item);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      (async () => {
+        try {
+          setLoading(true);
+          const data = await fetchMyHistory();
+          if (!cancelled) setReservations(data);
+        } catch (err) {
+          console.warn("Failed to load reservation history", err);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  // Group reservations by date
+  const grouped = reservations.reduce<Record<string, ReservationData[]>>(
+    (groups, item) => {
+      const dateKey = formatDate(item.startTime);
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(item);
       return groups;
     },
     {}
@@ -100,22 +106,37 @@ export default function ReservationsHistoryScreen() {
       >
         <Text style={styles.title}>Rezervime të mëparshme</Text>
 
-        {Object.entries(groupedReservations).map(([date, items]) => (
-          <View key={date} style={styles.group}>
-            <Text style={styles.dateText}>{date}</Text>
+        {loading && (
+          <ActivityIndicator
+            size="large"
+            color="#ED0000"
+            style={{ marginTop: 40 }}
+          />
+        )}
 
-            {items.map((item) => (
-              <ReservationCard key={item.id} item={item} />
-            ))}
-          </View>
-        ))}
+        {!loading && reservations.length === 0 && (
+          <Text style={styles.emptyText}>Nuk keni rezervime të mëparshme.</Text>
+        )}
+
+        {!loading &&
+          Object.entries(grouped).map(([date, items]) => (
+            <View key={date} style={styles.group}>
+              <Text style={styles.dateText}>{date}</Text>
+
+              {items.map((item) => (
+                <ReservationCard key={item.id} item={item} />
+              ))}
+            </View>
+          ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function ReservationCard({ item }: { item: ReservationItem }) {
-  const isOpen = item.status === "Hapur";
+// ─── Reservation Card ───────────────────────────────────────────────────────────
+
+function ReservationCard({ item }: { item: ReservationData }) {
+  const isOpen = isActiveStatus(item.status);
 
   return (
     <View style={styles.card}>
@@ -129,24 +150,36 @@ function ReservationCard({ item }: { item: ReservationItem }) {
               { backgroundColor: isOpen ? "#6ACA6A" : "#ED0000" },
             ]}
           >
-            <Text style={styles.badgeText}>{item.status}</Text>
+            <Text style={styles.badgeText}>{statusLabel(item.status)}</Text>
           </View>
 
           <View style={styles.spotsBadge}>
-            <Text style={styles.badgeText}>{item.spots}</Text>
+            <Text style={styles.badgeText}>{item.spotsReserved} vende</Text>
           </View>
         </View>
 
-        <Text style={styles.parkingName}>{item.name}</Text>
-        <Text style={styles.address}>{item.address}</Text>
+        <Text style={styles.parkingName}>{item.parkingName}</Text>
+        <Text style={styles.address}>
+          {item.totalCost ? `${item.totalCost} ALL` : ""}
+        </Text>
 
-        <Pressable style={styles.reserveAgainButton}>
+        <Pressable
+          style={styles.reserveAgainButton}
+          onPress={() =>
+            router.push({
+              pathname: "/parking-detail",
+              params: { parkingId: String(item.parkingId) },
+            })
+          }
+        >
           <Text style={styles.reserveAgainText}>Rezervo Përsëri</Text>
         </Pressable>
       </View>
     </View>
   );
 }
+
+// ─── Styles ─────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -192,6 +225,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 18,
     marginLeft: 12,
+  },
+
+  emptyText: {
+    color: "#9D9D9D",
+    fontSize: 15,
+    textAlign: "center",
+    marginTop: 40,
   },
 
   group: {

@@ -62,11 +62,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("now") Instant now,
             @Param("until") Instant until);
 
-    /** Background sweep: confirmed reservations whose end-time has passed. */
+    /** Background sweep: confirmed reservations whose holdExpiresAt has passed. */
     @Query("""
             SELECT r FROM Reservation r
             WHERE r.status = com.keVend.backend.model.Reservation.ReservationStatus.CONFIRMED
-              AND r.endTime < :now
+              AND r.holdExpiresAt < :now
             """)
     List<Reservation> findExpiredConfirmed(@Param("now") Instant now);
 

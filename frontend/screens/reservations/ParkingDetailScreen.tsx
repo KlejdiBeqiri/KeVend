@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -13,15 +14,66 @@ import {
 
 import BackButton from "@/components/common/BackButton";
 import ReservingModal from "@/screens/reservations/ReservingModal";
+import { fetchParkingById, ParkingLot } from "@/services/parkingService";
 
 export default function ParkingDetailScreen() {
-  const { name, address, hours, price, available, rating, reviews } =
-    useLocalSearchParams();
+  const params = useLocalSearchParams();
 
+  // Support both old string params and new parkingId param
+  const parkingId = params.parkingId ? Number(params.parkingId) : null;
+
+  const [parking, setParking] = useState<ParkingLot | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
 
   const images = [1, 2, 3];
+
+  useEffect(() => {
+    if (!parkingId) {
+      // Fallback: use route params if no parkingId (backwards compat)
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchParkingById(parkingId);
+        if (!cancelled) setParking(data);
+      } catch (err: any) {
+        if (!cancelled) setError("Nuk u gjet parkimi.");
+        console.warn("Failed to fetch parking", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [parkingId]);
+
+  // Derive display values from API data or legacy route params
+  const name = parking?.name ?? (params.name as string) ?? "";
+  const address = parking?.zone ?? (params.address as string) ?? "";
+  const hours = parking
+    ? parking.openTime && parking.closeTime
+      ? `${parking.openTime.substring(11, 16)} - ${parking.closeTime.substring(11, 16)}`
+      : "24 orë"
+    : (params.hours as string) ?? "";
+  const pricePerHour = parking?.pricePerHour ?? 0;
+  const price = parking
+    ? `${parking.pricePerHour}ALL`
+    : (params.price as string) ?? "";
+  const available = parking
+    ? `${parking.availableSpots} vende`
+    : (params.available as string) ?? "";
+  const rating = (params.rating as string) ?? "4.5";
+  const reviews = (params.reviews as string) ?? "0";
 
   const goPrevious = () => {
     setCurrentImageIndex((prev) =>
@@ -34,6 +86,22 @@ export default function ParkingDetailScreen() {
       prev === images.length - 1 ? 0 : prev + 1
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#ED0000" />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centered]}>
+        <Text style={{ color: "#fff", fontSize: 16 }}>{error}</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -79,12 +147,12 @@ export default function ParkingDetailScreen() {
             onPress={() => setModalVisible(true)}
           >
             <LinearGradient
-                colors={["#3080FF", "#00358B", "#00358B", "#3080FF"]}
-                locations={[0, 0.378, 0.6298, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.reserveGradient}
-              >
+              colors={["#3080FF", "#00358B", "#00358B", "#3080FF"]}
+              locations={[0, 0.378, 0.6298, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.reserveGradient}
+            >
               <Text style={styles.reserveText}>Rezervo vendin</Text>
             </LinearGradient>
           </Pressable>
@@ -96,27 +164,27 @@ export default function ParkingDetailScreen() {
 
             <View style={styles.priceRow}>
               <Text style={styles.priceText}>0 - 1h</Text>
-              <Text style={styles.priceText}>200 ALL</Text>
+              <Text style={styles.priceText}>{pricePerHour} ALL</Text>
             </View>
 
             <View style={styles.priceRow}>
               <Text style={styles.priceText}>1 - 2h</Text>
-              <Text style={styles.priceText}>400 ALL</Text>
+              <Text style={styles.priceText}>{pricePerHour * 2} ALL</Text>
             </View>
 
             <View style={styles.priceRow}>
               <Text style={styles.priceText}>3 - 4h</Text>
-              <Text style={styles.priceText}>600 ALL</Text>
+              <Text style={styles.priceText}>{pricePerHour * 4} ALL</Text>
             </View>
 
             <View style={styles.priceRow}>
               <Text style={styles.priceText}>4 - 5h</Text>
-              <Text style={styles.priceText}>800 ALL</Text>
+              <Text style={styles.priceText}>{pricePerHour * 5} ALL</Text>
             </View>
 
             <View style={styles.priceRow}>
               <Text style={styles.priceText}>5 - 12h</Text>
-              <Text style={styles.priceText}>1000 + 100ALL/h</Text>
+              <Text style={styles.priceText}>{pricePerHour * 12} ALL</Text>
             </View>
 
             <View style={styles.priceRow}>
@@ -130,8 +198,8 @@ export default function ParkingDetailScreen() {
       <ReservingModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
+        parkingId={parkingId ?? undefined}
       />
-
     </SafeAreaView>
   );
 }
@@ -140,6 +208,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000000",
+  },
+
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   scrollContent: {

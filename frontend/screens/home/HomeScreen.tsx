@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   Image,
-  Modal,
   PanResponder,
   Pressable,
   SafeAreaView,
@@ -17,59 +16,96 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
-const TOTAL_SECONDS = 10 * 60;
+import {
+  fetchMyHistory,
+  ReservationData,
+} from "@/services/reservationService";
+import { fetchParkingLots, ParkingLot } from "@/services/parkingService";
+
 
 export default function HomeScreen() {
+
+  // Data from backend
+  const [activeReservation, setActiveReservation] =
+    useState<ReservationData | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-  const [hasActiveReservation, setHasActiveReservation] = useState(false);
-  const [expiredModalVisible, setExpiredModalVisible] = useState(false);
+  const [partnerParkings, setPartnerParkings] = useState<ParkingLot[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const hasNotifications = false;
 
+  // ── Fetch data from backend on every focus ──
   useFocusEffect(
     useCallback(() => {
-      let timer: ReturnType<typeof setInterval> | null = null;
+      let cancelled = false;
 
-      const updateCountdown = async () => {
-        const savedStartTime = await AsyncStorage.getItem("reservationStartTime");
+      (async () => {
+        try {
+          setLoading(true);
 
-        if (!savedStartTime) {
-          setHasActiveReservation(false);
-          setSecondsLeft(null);
-          return;
+          // Fetch reservation history and pick the active one
+          const [history, parkings] = await Promise.all([
+            fetchMyHistory().catch(() => [] as ReservationData[]),
+            fetchParkingLots({ availableOnly: true }).catch(
+              () => [] as ParkingLot[]
+            ),
+          ]);
+
+          if (cancelled) return;
+
+          // Find the most recent CONFIRMED or SOFT_HOLD reservation
+          const active = history.find(
+            (r) => r.status === "CONFIRMED" || r.status === "SOFT_HOLD"
+          );
+          setActiveReservation(active ?? null);
+          setPartnerParkings(parkings.slice(0, 4)); // show up to 4 partner cards
+        } catch (err) {
+          console.warn("Failed to load home data", err);
+        } finally {
+          if (!cancelled) setLoading(false);
         }
-
-        const now = Date.now();
-        const elapsed = Math.floor((now - Number(savedStartTime)) / 1000);
-        const remaining = TOTAL_SECONDS - elapsed;
-
-        if (remaining <= 0) {
-          await AsyncStorage.removeItem("reservationStartTime");
-          setHasActiveReservation(false);
-          setSecondsLeft(null);
-          setExpiredModalVisible(true);
-          return;
-        }
-
-        setHasActiveReservation(true);
-        setSecondsLeft(remaining);
-      };
-
-      updateCountdown();
-
-      timer = setInterval(() => {
-        updateCountdown();
-      }, 1000);
+      })();
 
       return () => {
-        if (timer) clearInterval(timer);
+        cancelled = true;
       };
     }, [])
   );
 
-  const minutes = secondsLeft !== null ? Math.floor(secondsLeft / 60) : 0;
-  const seconds = secondsLeft !== null ? secondsLeft % 60 : 0;
-  const timeText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  // ── Compute remaining time ──
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    
+    if (activeReservation?.holdExpiresAt) {
+      const expirationDate = new Date(activeReservation.holdExpiresAt).getTime();
+      
+      const updateTimer = () => {
+        const remaining = Math.max(0, Math.floor((expirationDate - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+        
+        // If the timer reaches 0, you could optionally refetch or clear the active reservation
+        if (remaining <= 0) {
+          setActiveReservation(null);
+          setSecondsLeft(null);
+          if (timer) clearInterval(timer);
+        }
+      };
+      
+      updateTimer();
+      timer = setInterval(updateTimer, 1000);
+    } else {
+      setSecondsLeft(null);
+    }
+    
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [activeReservation]);
+
+  const timeText = secondsLeft !== null 
+    ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, "0")}`
+    : "";
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -100,76 +136,101 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>Rezervimi Aktual</Text>
 
-        <View style={styles.currentCard}>
-          <View style={styles.imagePlaceholder} />
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color="#ED0000"
+            style={{ marginVertical: 20 }}
+          />
+        ) : activeReservation ? (
+          <View style={styles.currentCard}>
+            <View style={styles.imagePlaceholder} />
 
-          <View style={styles.currentInfo}>
-            <Text style={styles.currentName}>Avni Rustemi Parking</Text>
-            <Text style={styles.currentAddress}>
-              Sheshi Avni Rustemi, Tiranë
-            </Text>
+            <View style={styles.currentInfo}>
+              <Text style={styles.currentName}>
+                {activeReservation.parkingName}
+              </Text>
+              <Text style={styles.currentAddress}>
+                {activeReservation.totalCost
+                  ? `${activeReservation.totalCost} ALL`
+                  : ""}
+              </Text>
 
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Hapur</Text>
+
+
+
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>
+                  {activeReservation.status === "CONFIRMED"
+                    ? "Konfirmuar"
+                    : "Në pritje"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.spotsBadge}>
+              <Text style={styles.spotsText}>
+                {activeReservation.spotsReserved} vende
+              </Text>
             </View>
           </View>
-
-          <View style={styles.spotsBadge}>
-            <Text style={styles.spotsText}>5 vende</Text>
+        ) : (
+          <View style={styles.currentCard}>
+            <View style={styles.imagePlaceholder} />
+            <View style={styles.currentInfo}>
+              <Text style={styles.currentName}>
+                Nuk keni rezervim aktual
+              </Text>
+              <Text style={styles.currentAddress}>
+                Shkoni te harta për të gjetur një parkim
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <Text style={styles.sectionTitle}>Bashkëpunimet Tona</Text>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <PartnerCard
-            spaces="10 vende të lira"
-            spacesColor="#6ACA6A"
-            name="TopTani Shopping Center"
-            address="Rruga Abdi Toptani, Tiranë"
-            price="200ALL/ Ora"
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color="#ED0000"
+            style={{ marginVertical: 20 }}
           />
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {partnerParkings.map((lot) => (
+              <Pressable
+                key={lot.id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/parking-detail",
+                    params: { parkingId: String(lot.id) },
+                  })
+                }
+              >
+                <PartnerCard
+                  spaces={`${lot.availableSpots} vende të lira`}
+                  spacesColor={lot.availableSpots > 5 ? "#6ACA6A" : "#ED0000"}
+                  name={lot.name}
+                  address={lot.zone ?? ""}
+                  price={`${lot.pricePerHour}ALL/ Ora`}
+                />
+              </Pressable>
+            ))}
 
-          <PartnerCard
-            spaces="3 vende të lira"
-            spacesColor="#ED0000"
-            name="Parkimi Nentokesore"
-            address="Rruga Ibrahim Rugova, Tiranë"
-            price="200ALL/ Ora"
-          />
-        </ScrollView>
+            {partnerParkings.length === 0 && (
+              <Text style={{ color: "#9D9D9D", marginLeft: 10 }}>
+                Nuk u gjetën parkime.
+              </Text>
+            )}
+          </ScrollView>
+        )}
       </ScrollView>
 
       {/* Draggable countdown rendered outside ScrollView so it floats freely */}
-      {hasActiveReservation && secondsLeft !== null && (
+      {activeReservation && secondsLeft !== null && (
         <DraggableCountdown secondsLeft={secondsLeft} timeText={timeText} />
       )}
-
-      <Modal visible={expiredModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.expiredModal}>
-            <View style={styles.expiredCircle}>
-              <Ionicons name="time-outline" size={52} color="#FFFFFF" />
-            </View>
-
-            <Text style={styles.expiredTitle}>
-              Koha e rezervimit përfundoi.
-            </Text>
-
-            <Text style={styles.expiredText}>
-              Nëse nuk keni arritur në parkimin e zgjedhur, ju nuk do të keni
-              një vend të rezervuar.
-            </Text>
-
-            <Pressable
-              style={styles.okButton}
-              onPress={() => setExpiredModalVisible(false)}
-            >
-              <Text style={styles.okButtonText}>Në rregull</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -191,16 +252,17 @@ function DraggableCountdown({
   // Top boundary: below the header (~90px from top)
   const MIN_Y = 90;
   // Bottom boundary: tab bar is 61px tall, sits 17px from bottom → 78px total.
-  // Add a small 10px gap so the widget doesn't touch the tab bar.
   const MAX_Y = SCREEN_HEIGHT - WIDGET_SIZE - 78 - 10;
 
   const initialX = SCREEN_WIDTH - WIDGET_SIZE - SNAP_MARGIN;
   const initialY = 130;
 
-  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
-  const panRef = useRef({ x: initialX, y: initialY });
+  const pan = React.useRef(
+    new Animated.ValueXY({ x: initialX, y: initialY })
+  ).current;
+  const panRef = React.useRef({ x: initialX, y: initialY });
 
-  useEffect(() => {
+  React.useEffect(() => {
     const id = pan.addListener((val) => {
       panRef.current = val;
     });
@@ -209,7 +271,7 @@ function DraggableCountdown({
 
   const clampY = (y: number) => Math.min(Math.max(y, MIN_Y), MAX_Y);
 
-  const panResponder = useRef(
+  const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
@@ -218,11 +280,14 @@ function DraggableCountdown({
         pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: (_, gesture) => {
-        const rawY = panRef.current.y + gesture.dy - panRef.current.y;
-        // Let Animated.event handle x; manually clamp y
         pan.x.setValue(panRef.current.x + gesture.dx - panRef.current.x);
         const offsetY = (pan.y as any)._offset ?? 0;
-        pan.y.setValue(Math.min(Math.max(gesture.dy, MIN_Y - offsetY), MAX_Y - offsetY));
+        pan.y.setValue(
+          Math.min(
+            Math.max(gesture.dy, MIN_Y - offsetY),
+            MAX_Y - offsetY
+          )
+        );
       },
       onPanResponderRelease: () => {
         pan.flattenOffset();
@@ -266,6 +331,8 @@ function CountdownRing({ secondsLeft }: { secondsLeft: number }) {
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
+  // Use 10 minutes (600 seconds) as the max for the ring
+  const TOTAL_SECONDS = 10 * 60;
   const progress = secondsLeft / TOTAL_SECONDS;
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -296,6 +363,7 @@ function CountdownRing({ secondsLeft }: { secondsLeft: number }) {
     </Svg>
   );
 }
+
 
 // ─── Partner Card ──────────────────────────────────────────────────────────────
 

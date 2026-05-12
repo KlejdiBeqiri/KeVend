@@ -21,6 +21,7 @@ public class Parking {
     private String name;
 
     /** Free-text city zone/neighbourhood, e.g. "Blloku", "Qendra" (FR-14). */
+    @Column(columnDefinition = "TEXT")
     private String zone;
 
     private Double latitude;
