@@ -1,6 +1,7 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Keyboard,
   NativeSyntheticEvent,
   StyleSheet,
@@ -15,20 +16,40 @@ import AuthButton from "@/components/auth/AuthButton";
 import AuthFooter from "@/components/auth/AuthFooter";
 import AuthHeader from "@/components/auth/AuthHeader";
 import AuthLayout from "@/components/auth/AuthLayout";
+import BackButton from "@/components/common/BackButton";
 import colors from "@/constants/colors";
 import fonts from "@/constants/fonts";
-import BackButton from "@/components/common/BackButton";
+import { useI18n } from "@/i18n/I18nProvider";
+import {
+  clearPasswordResetSession,
+  getErrorMessage,
+  requestPasswordReset,
+  requestPasswordResetForCurrentUser,
+  savePasswordResetSession,
+  verifyPasswordResetCode,
+} from "@/services/authService";
 
+const getSingleParam = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] ?? "" : value ?? "";
 
 export default function VerifyCodeScreen() {
-  const correctCode = "12345";
+  const { t } = useI18n();
+  const params = useLocalSearchParams<{ email?: string; source?: string }>();
+  const email = getSingleParam(params.email);
+  const source = getSingleParam(params.source);
+  const fromAuthenticatedReset = source === "authenticated";
 
   const [code, setCode] = useState(["", "", "", "", ""]);
   const [secondsLeft, setSecondsLeft] = useState(59);
-  const inputsRef = useRef<Array<TextInput | null>>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const inputsRef = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
-    if (secondsLeft <= 0) return;
+    if (secondsLeft <= 0) {
+      return;
+    }
 
     const interval = setInterval(() => {
       setSecondsLeft((prev) => prev - 1);
@@ -47,13 +68,6 @@ export default function VerifyCodeScreen() {
     if (value && index < code.length - 1) {
       inputsRef.current[index + 1]?.focus();
     }
-
-    const enteredCode = newCode.join("");
-
-    if (enteredCode.length === 5 && enteredCode === correctCode) {
-      Keyboard.dismiss();
-      router.push("/(auth)/new-password");
-    }
   };
 
   const handleKeyPress = (
@@ -65,19 +79,60 @@ export default function VerifyCodeScreen() {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    setError("");
+
+    if (!email) {
+      setError(t("auth.emailMissingReset"));
+      return;
+    }
+
     const enteredCode = code.join("");
 
-    if (enteredCode === correctCode) {
+    if (enteredCode.length !== 5) {
+      setError(t("auth.enterCode"));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await verifyPasswordResetCode(email, enteredCode);
+      await savePasswordResetSession({ email, code: enteredCode });
       Keyboard.dismiss();
-      router.push("/(auth)/new-password");
+      router.push({
+        pathname: "/(auth)/new-password",
+        params: { email, code: enteredCode },
+      });
+    } catch (err) {
+      setError(getErrorMessage(err, t("auth.codeVerificationFailed")));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResend = () => {
-    setSecondsLeft(59);
-    setCode(["", "", "", "", ""]);
-    inputsRef.current[0]?.focus();
+  const handleResend = async () => {
+    if (secondsLeft > 0 || !email) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      setResending(true);
+      if (fromAuthenticatedReset) {
+        await requestPasswordResetForCurrentUser();
+      } else {
+        await requestPasswordReset(email);
+      }
+      await clearPasswordResetSession();
+      setSecondsLeft(59);
+      setCode(["", "", "", "", ""]);
+      inputsRef.current[0]?.focus();
+    } catch (err) {
+      setError(getErrorMessage(err, t("auth.resendFailed")));
+    } finally {
+      setResending(false);
+    }
   };
 
   const formattedTime = `0:${secondsLeft < 10 ? `0${secondsLeft}` : secondsLeft}`;
@@ -86,12 +141,12 @@ export default function VerifyCodeScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
         <AuthLayout>
-        <BackButton />
-          <AuthHeader title="Ndrysho Fjalëkalimin" />
+          <BackButton />
+          <AuthHeader title={t("auth.verifyCode")} />
 
           <View style={styles.formContainer}>
             <Text style={styles.subtitle}>
-              Shkruani kodin 5-shifror nga emaili juaj.
+              {t("auth.codeSubtitle")}
             </Text>
 
             <View style={styles.codeContainer}>
@@ -113,15 +168,23 @@ export default function VerifyCodeScreen() {
             </View>
           </View>
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <View style={styles.buttonContainer}>
-            <AuthButton title="Dërgo" onPress={handleSend} />
+            {loading ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <AuthButton title="Vazhdo" onPress={handleSend} />
+            )}
 
             <AuthFooter
               text=""
               linkText={
-                secondsLeft > 0
-                  ? `Ridërgo kodin në ${formattedTime}`
-                  : "Ridërgo"
+                resending
+                  ? t("auth.resendLoading")
+                  : secondsLeft > 0
+                    ? t("auth.resendCodeIn", { time: formattedTime })
+                    : t("auth.resend")
               }
               onPress={handleResend}
             />
@@ -137,7 +200,6 @@ const styles = StyleSheet.create({
     marginTop: 65,
     alignItems: "center",
   },
-
   subtitle: {
     fontSize: 17,
     color: colors.white,
@@ -145,14 +207,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interRegular,
     marginBottom: 35,
   },
-
   codeContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
     gap: 10,
   },
-
   codeInput: {
     width: 63,
     height: 73,
@@ -162,9 +222,14 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontFamily: fonts.interSemiBold,
   },
-
   buttonContainer: {
     marginTop: 45,
     alignItems: "center",
+  },
+  errorText: {
+    color: "red",
+    textAlign: "center",
+    marginTop: 12,
+    fontSize: 13,
   },
 });

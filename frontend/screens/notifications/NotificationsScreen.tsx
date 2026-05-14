@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,33 +12,17 @@ import {
   View,
 } from "react-native";
 
-import BackButton from "@/components/common/BackButton";
-import api from "@/api";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type NotificationType =
-  | "CHECK_IN_CONFIRMATION"
-  | "EXPIRY_WARNING"
-  | "EXPIRY_REACHED"
-  | "UNPAID_REMINDER"
-  | "OTP"
-  | "RESERVATION_CONFIRMATION";
-
-type DeliveryStatus = "PENDING" | "DELIVERED" | "FAILED";
-type NotificationChannel = "PUSH" | "SMS";
-
-type Notification = {
-  id: number;
-  message: string;
-  type: NotificationType;
-  channel: NotificationChannel;
-  deliveryStatus: DeliveryStatus;
-  sentAt: string | number[] | null;
-  createdAt: string | number[];
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import {
+  DeliveryStatus,
+  fetchMyNotifications,
+  getCachedNotifications,
+  hasFreshNotificationsCache,
+  NotificationItem,
+  NotificationType,
+  subscribeNotificationChanges,
+  triggerTestPush,
+} from "@/services/notificationsService";
+import { useI18n } from "@/i18n/I18nProvider";
 
 function parseLocalDateTime(raw: string | number[] | null): Date | null {
   if (!raw) return null;
@@ -48,340 +33,433 @@ function parseLocalDateTime(raw: string | number[] | null): Date | null {
   return new Date(raw);
 }
 
-function formatDate(raw: string | number[]): string {
+function formatDate(raw: string | number[], locale: string): string {
   const date = parseLocalDateTime(raw);
   if (!date) return "";
-  return date.toLocaleDateString("sq-AL", {
+  return date.toLocaleDateString(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 }
 
-function formatTime(raw: string | number[] | null): string {
+function formatTime(raw: string | number[] | null, locale: string): string {
   const date = parseLocalDateTime(raw);
   if (!date) return "";
-  return date.toLocaleTimeString("sq-AL", {
+  return date.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-const TYPE_LABELS: Record<NotificationType, string> = {
-  CHECK_IN_CONFIRMATION:    "Konfirmim Check-In",
-  EXPIRY_WARNING:           "Paralajmërim Skadimi",
-  EXPIRY_REACHED:           "Rezervimi Skadoi",
-  UNPAID_REMINDER:          "Kujtesë Pagese",
-  OTP:                      "Kod OTP",
-  RESERVATION_CONFIRMATION: "Konfirmim Rezervimi",
+const TYPE_ICON: Record<NotificationType, keyof typeof Ionicons.glyphMap> = {
+  CHECK_IN_CONFIRMATION: "checkmark-done-circle-outline",
+  SOFT_HOLD_EXPIRED: "timer-outline",
+  EXPIRY_WARNING: "alert-circle-outline",
+  EXPIRY_REACHED: "time-outline",
+  UNPAID_REMINDER: "card-outline",
+  OTP: "shield-checkmark-outline",
+  RESERVATION_CONFIRMATION: "car-outline",
 };
 
 const STATUS_COLOR: Record<DeliveryStatus, string> = {
-  PENDING:   "#F0A500",
-  DELIVERED: "#6ACA6A",
-  FAILED:    "#ED0000",
+  DELIVERED: "#38BDF8",
+  PENDING: "#F59E0B",
+  FAILED: "#F43F5E",
 };
 
-// ── Screen ────────────────────────────────────────────────────────────────────
-
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState<string | null>(null);
+  const { locale, t } = useI18n();
+  const dateLocale = locale === "sq" ? "sq-AL" : "en-US";
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [triggeringTest, setTriggeringTest] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
+  const loadNotifications = useCallback(async (refresh = false) => {
+    const cached = getCachedNotifications();
+    const shouldUseCachedFirst = !refresh && cached && cached.length >= 0;
 
-      const fetch = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const { data } = await api.get<Notification[]>("/notifications/me");
-          if (!cancelled) setNotifications(data);
-        } catch {
-          if (!cancelled) setError("Ndodhi një gabim. Provoni përsëri.");
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      };
+    if (shouldUseCachedFirst) {
+      setNotifications(cached);
+      setLoading(false);
+    }
 
-      fetch();
-      return () => { cancelled = true; };
-    }, [])
+    if (!refresh && hasFreshNotificationsCache()) {
+      setError(null);
+      return;
+    }
+
+    if (refresh) {
+      setRefreshing(true);
+    } else if (!shouldUseCachedFirst) {
+      setLoading(true);
+    }
+
+    try {
+      const data = await fetchMyNotifications();
+      setNotifications(data);
+      setError(null);
+    } catch {
+      setError(t("notifications.loadError"));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    const cached = getCachedNotifications();
+    if (cached) {
+      setNotifications(cached);
+      setLoading(false);
+    }
+
+    void loadNotifications();
+    const unsubscribe = subscribeNotificationChanges(() => {
+      void loadNotifications(true);
+    });
+
+    return unsubscribe;
+  }, [loadNotifications]);
+
+  const grouped = useMemo(
+    () =>
+      notifications.reduce<Record<string, NotificationItem[]>>((acc, item) => {
+        const label = formatDate(item.createdAt, dateLocale);
+        if (!acc[label]) acc[label] = [];
+        acc[label].push(item);
+        return acc;
+      }, {}),
+    [dateLocale, notifications]
   );
 
-  // Group by formatted date string
-  const grouped = notifications.reduce<Record<string, Notification[]>>(
-    (acc, item) => {
-      const label = formatDate(item.createdAt);
-      if (!acc[label]) acc[label] = [];
-      acc[label].push(item);
-      return acc;
-    },
-    {}
-  );
+  const deliveredCount = notifications.filter((item) => item.deliveryStatus === "DELIVERED").length;
+
+  const handleTriggerTest = useCallback(async () => {
+    try {
+      setTriggeringTest(true);
+      await triggerTestPush();
+      await loadNotifications(true);
+    } catch {
+      setError(t("notifications.testError"));
+    } finally {
+      setTriggeringTest(false);
+    }
+  }, [loadNotifications, t]);
+
+  const typeLabels: Record<NotificationType, string> = {
+    CHECK_IN_CONFIRMATION: t("notifications.type.checkin"),
+    SOFT_HOLD_EXPIRED: t("notifications.type.softHold"),
+    EXPIRY_WARNING: t("notifications.type.expiryWarning"),
+    EXPIRY_REACHED: t("notifications.type.expiryReached"),
+    UNPAID_REMINDER: t("notifications.type.unpaid"),
+    OTP: t("notifications.type.security"),
+    RESERVATION_CONFIRMATION: t("notifications.type.reservation"),
+  };
+
+  const statusText: Record<DeliveryStatus, string> = {
+    DELIVERED: t("notifications.delivered"),
+    PENDING: t("notifications.pending"),
+    FAILED: t("notifications.failed"),
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <BackButton />
-
-        <Image
-          source={require("../../assets/logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* ── Body ── */}
-      {loading ? (
-        <View style={styles.centeredState}>
-          <ActivityIndicator size="large" color="#6ACA6A" />
-        </View>
-
-      ) : error ? (
-        <View style={styles.centeredState}>
-          <Ionicons name="cloud-offline-outline" size={60} color="#555" />
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
-
-      ) : notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadNotifications(true)}
+            tintColor="#FFFFFF"
+          />
+        }
+      >
+        <View style={styles.header}>
           <Image
-            source={require("../../assets/notifications.png")}
-            style={styles.emptyImage}
+            source={require("../../assets/logo.png")}
+            style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.emptyText}>
-            Ju nuk keni asnjë njoftim për momentin.
-          </Text>
         </View>
 
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <Text style={styles.title}>Njoftime</Text>
+        <View style={styles.heroCard}>
+          <View style={styles.heroIcon}>
+            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+          </View>
+          <View style={styles.heroBody}>
+            <Text style={styles.heroEyebrow}>{t("notifications.center")}</Text>
+            <Text style={styles.heroTitle}>{t("notifications.allInOne")}</Text>
+            <Text style={styles.heroMeta}>
+              {t("notifications.stats", { count: notifications.length, delivered: deliveredCount })}
+            </Text>
+            <Pressable
+              style={[styles.testButton, triggeringTest && styles.testButtonDisabled]}
+              onPress={handleTriggerTest}
+              disabled={triggeringTest}
+            >
+              <Ionicons name="flash-outline" size={16} color="#031225" />
+              <Text style={styles.testButtonText}>
+                {triggeringTest ? t("notifications.sendingTest") : t("notifications.sendTest")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
-          {Object.entries(grouped).map(([date, items]) => (
+        {loading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator size="large" color="#60A5FA" />
+          </View>
+        ) : error ? (
+          <View style={styles.stateCard}>
+            <Ionicons name="cloud-offline-outline" size={38} color="#94A3B8" />
+            <Text style={styles.stateText}>{error}</Text>
+          </View>
+        ) : notifications.length === 0 ? (
+          <View style={styles.stateCard}>
+            <Image
+              source={require("../../assets/notifications.png")}
+              style={styles.emptyImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.emptyTitle}>{t("notifications.emptyTitle")}</Text>
+            <Text style={styles.stateText}>
+              {t("notifications.emptyText")}
+            </Text>
+          </View>
+        ) : (
+          Object.entries(grouped).map(([date, items]) => (
             <View key={date} style={styles.group}>
-              <Text style={styles.dateText}>{date}</Text>
+              <Text style={styles.groupLabel}>{date}</Text>
+              {items.map((item) => (
+                <View key={item.id} style={styles.card}>
+                  <View style={styles.cardIcon}>
+                    <Ionicons name={TYPE_ICON[item.type]} size={22} color="#FFFFFF" />
+                  </View>
 
-              <View style={styles.notificationsBox}>
-                {items.map((item, index) => (
-                  <View key={item.id}>
-                    <View style={styles.notificationRow}>
-                      {/* Icon */}
-                      <View style={styles.iconCircle}>
-                        <Ionicons
-                          name="notifications-outline"
-                          size={24}
-                          color="#fff"
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.cardTitle}>{typeLabels[item.type]}</Text>
+                      <Text style={styles.cardTime}>{formatTime(item.sentAt ?? item.createdAt, dateLocale)}</Text>
+                    </View>
+                    <Text style={styles.cardMessage}>{item.message}</Text>
+                    <View style={styles.statusRow}>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: `${STATUS_COLOR[item.deliveryStatus]}22` },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: STATUS_COLOR[item.deliveryStatus] },
+                          ]}
                         />
-                      </View>
-
-                      {/* Text */}
-                      <View style={styles.textContainer}>
-                        <View style={styles.rowHeader}>
-                          <Text style={styles.name}>
-                            {TYPE_LABELS[item.type] ?? item.type}
-                          </Text>
-                          <Text style={styles.time}>
-                            {formatTime(item.sentAt ?? item.createdAt)}
-                          </Text>
-                        </View>
-
-                        <Text style={styles.message}>{item.message}</Text>
-
-                        {/* Delivery status dot */}
-                        <View style={styles.statusRow}>
-                          <View
-                            style={[
-                              styles.statusDot,
-                              { backgroundColor: STATUS_COLOR[item.deliveryStatus] },
-                            ]}
-                          />
-                          <Text style={styles.statusText}>
-                            {item.deliveryStatus === "DELIVERED"
-                              ? "Dërguar"
-                              : item.deliveryStatus === "PENDING"
-                              ? "Në pritje"
-                              : "Dështuar"}
-                          </Text>
-                        </View>
+                        <Text
+                          style={[
+                            styles.statusText,
+                            { color: STATUS_COLOR[item.deliveryStatus] },
+                          ]}
+                        >
+                          {statusText[item.deliveryStatus]}
+                        </Text>
                       </View>
                     </View>
-
-                    {index !== items.length - 1 && <View style={styles.line} />}
                   </View>
-                ))}
-              </View>
+                </View>
+              ))}
             </View>
-          ))}
-        </ScrollView>
-      )}
+          ))
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#050816",
   },
-
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 44,
+    paddingBottom: 120,
+  },
   header: {
-    position: "absolute",
-    top: 55,
-    alignSelf: "center",
     alignItems: "center",
-    justifyContent: "center",
+    marginBottom: 18,
   },
-
   logo: {
     width: 145,
     height: 55,
   },
-
-  scrollContent: {
-    paddingTop: 140,
-    paddingBottom: 120,
+  heroCard: {
+    borderRadius: 26,
+    backgroundColor: "#101A33",
+    padding: 18,
+    flexDirection: "row",
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.16)",
+    marginBottom: 22,
   },
-
-  centeredState: {
-    flex: 1,
+  heroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
   },
-
-  stateText: {
-    color: "#9D9D9D",
-    fontSize: 14,
-    textAlign: "center",
-    paddingHorizontal: 32,
+  heroBody: {
+    flex: 1,
   },
-
-  emptyContainer: {
-    position: "absolute",
-    top: "39%",
-    alignSelf: "center",
+  heroEyebrow: {
+    color: "#93C5FD",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    marginTop: 6,
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    lineHeight: 28,
+  },
+  heroMeta: {
+    marginTop: 8,
+    color: "#94A3B8",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  testButton: {
+    marginTop: 14,
+    alignSelf: "flex-start",
+    flexDirection: "row",
     alignItems: "center",
-    width: "100%",
-  },
-
-  emptyImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 35,
-  },
-
-  emptyText: {
-    maxWidth: "90%",
-    fontSize: 14,
-    lineHeight: 27,
-    letterSpacing: -1,
-    color: "#fff",
-    textAlign: "center",
-  },
-
-  title: {
-    color: "#fff",
-    fontSize: 30,
-    fontWeight: "400",
-    marginLeft: 25,
-    marginBottom: 18,
-  },
-
-  group: {
-    marginBottom: 14,
-  },
-
-  dateText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "500",
-    marginLeft: 25,
-    marginBottom: 8,
-  },
-
-  notificationsBox: {
-    backgroundColor: "#323232",
+    gap: 8,
+    backgroundColor: "#E2ECFF",
+    borderRadius: 999,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
-
-  notificationRow: {
-    flexDirection: "row",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+  testButtonDisabled: {
+    opacity: 0.7,
   },
-
-  iconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#2A77F1",
+  testButtonText: {
+    color: "#031225",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  centerState: {
+    paddingVertical: 60,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 20,
   },
-
-  textContainer: {
+  stateCard: {
+    borderRadius: 24,
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.14)",
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    alignItems: "center",
+  },
+  stateText: {
+    marginTop: 12,
+    color: "#94A3B8",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  emptyImage: {
+    width: 86,
+    height: 86,
+  },
+  emptyTitle: {
+    marginTop: 16,
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  group: {
+    marginBottom: 22,
+  },
+  groupLabel: {
+    marginBottom: 10,
+    color: "#CBD5E1",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  card: {
+    borderRadius: 22,
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.13)",
+    padding: 16,
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 10,
+  },
+  cardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#1D4ED8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardBody: {
     flex: 1,
   },
-
-  rowHeader: {
+  cardTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
   },
-
-  name: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "400",
+  cardTitle: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
-
-  time: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "400",
+  cardTime: {
+    color: "#94A3B8",
+    fontSize: 12,
   },
-
-  message: {
-    color: "rgba(209, 209, 209, 0.78)",
+  cardMessage: {
+    marginTop: 8,
+    color: "#D7E2F0",
     fontSize: 14,
-    lineHeight: 16,
-    marginTop: 4,
-    paddingRight: 8,
+    lineHeight: 20,
   },
-
   statusRow: {
+    marginTop: 12,
+    flexDirection: "row",
+  },
+  statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 6,
-    gap: 5,
+    gap: 7,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-
   statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 999,
   },
-
   statusText: {
-    color: "#9D9D9D",
-    fontSize: 11,
-  },
-
-  line: {
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.27)",
-    marginLeft: 85,
-    marginRight: 15,
+    fontSize: 12,
+    fontWeight: "700",
   },
 });

@@ -1,17 +1,58 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import Constants from "expo-constants";
+import axios, { create } from "axios";
+import { Platform } from "react-native";
 
-const api = axios.create({
-  baseURL: "http://192.168.100.136:8080/api/v1",
-  timeout: 10000,
+function normalizeBaseUrl(url) {
+  return url?.trim().replace(/\/$/, "");
+}
+
+function getExpoHostIp() {
+  const hostCandidates = [
+    Constants.expoConfig?.hostUri,
+    Constants.expoGoConfig?.debuggerHost,
+    Constants.manifest2?.extra?.expoClient?.hostUri,
+  ];
+
+  for (const candidate of hostCandidates) {
+    if (!candidate || typeof candidate !== "string") {
+      continue;
+    }
+
+    const host = candidate.split(":")[0]?.trim();
+    if (host) {
+      return host;
+    }
+  }
+
+  return null;
+}
+
+function getDefaultApiBaseUrl() {
+  const expoHostIp = getExpoHostIp();
+  if (expoHostIp) {
+    return `http://${expoHostIp}:8080/api/v1`;
+  }
+
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:8080/api/v1";
+  }
+
+  return "http://localhost:8080/api/v1";
+}
+
+const API_BASE_URL =
+  normalizeBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL) ||
+  getDefaultApiBaseUrl();
+
+const api = create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// ─────────────────────────────
-// REQUEST INTERCEPTOR
-// ─────────────────────────────
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem("accessToken");
 
@@ -25,18 +66,12 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ─────────────────────────────
-// RESPONSE INTERCEPTOR (REFRESH LOGIC)
-// ─────────────────────────────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest?._retry
-    ) {
+    if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true;
 
       try {
@@ -46,10 +81,7 @@ api.interceptors.response.use(
           throw new Error("No refresh token found");
         }
 
-        const res = await axios.post(
-          "http://192.168.100.136:8080/api/v1/auth/refresh",
-          { refreshToken }
-        );
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
 
         const newAccessToken = res.data.accessToken;
         const newRefreshToken = res.data.refreshToken;
@@ -58,13 +90,21 @@ api.interceptors.response.use(
           throw new Error("Invalid refresh response");
         }
 
-        // ✅ update BOTH tokens (important because backend rotates refresh token)
-        await AsyncStorage.multiSet([
+        const storageEntries = [
           ["accessToken", newAccessToken],
           ["refreshToken", newRefreshToken],
-        ]);
+        ];
 
-        // retry original request with new token
+        if (res.data.role) {
+          storageEntries.push(["role", String(res.data.role)]);
+        }
+
+        if (res.data.userId !== undefined && res.data.userId !== null) {
+          storageEntries.push(["userId", String(res.data.userId)]);
+        }
+
+        await AsyncStorage.multiSet(storageEntries);
+
         return api({
           ...originalRequest,
           headers: {
@@ -73,7 +113,6 @@ api.interceptors.response.use(
           },
         });
       } catch (refreshError) {
-        // refresh failed → clear everything and force logout
         await AsyncStorage.multiRemove([
           "accessToken",
           "refreshToken",

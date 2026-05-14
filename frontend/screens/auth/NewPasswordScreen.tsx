@@ -1,9 +1,11 @@
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   StyleSheet,
+  Text,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -13,41 +15,106 @@ import AuthHeader from "@/components/auth/AuthHeader";
 import AuthLayout from "@/components/auth/AuthLayout";
 import PasswordInput from "@/components/auth/PasswordInput";
 import BackButton from "@/components/common/BackButton";
+import { useI18n } from "@/i18n/I18nProvider";
+import {
+  clearPasswordResetSession,
+  getErrorMessage,
+  getPasswordResetSession,
+  resetPassword,
+} from "@/services/authService";
+
+const getSingleParam = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] ?? "" : value ?? "";
 
 export default function NewPasswordScreen() {
+  const { t } = useI18n();
+  const params = useLocalSearchParams<{ email?: string; code?: string }>();
+  const paramEmail = getSingleParam(params.email);
+  const paramCode = getSingleParam(params.code);
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [securePassword, setSecurePassword] = useState(true);
   const [secureConfirmPassword, setSecureConfirmPassword] = useState(true);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState(paramEmail);
+  const [sessionCode, setSessionCode] = useState(paramCode);
 
-  const handleSave = () => {
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSession = async () => {
+      if (paramEmail && paramCode) {
+        return;
+      }
+
+      const session = await getPasswordResetSession();
+      if (!isMounted || !session) {
+        return;
+      }
+
+      setSessionEmail(session.email);
+      setSessionCode(session.code);
+    };
+
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [paramCode, paramEmail]);
+
+  const handleSave = async () => {
+    setError("");
+
+    if (!sessionEmail || !sessionCode) {
+      setError(t("auth.missingResetSession"));
+      return;
+    }
+
     if (!password || !confirmPassword) {
-      Alert.alert("Gabim", "Ju lutem plotësoni të dy fushat.");
+      setError(t("auth.fillBothFields"));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Gabim", "Fjalëkalimet nuk përputhen.");
+      setError(t("auth.passwordMismatch"));
       return;
     }
 
-    console.log("Password changed successfully");
-    Alert.alert("Sukses", "Fjalëkalimi u ndryshua me sukses.");
-    router.replace("/(auth)/login");
+    if (password.length < 8) {
+      setError(t("auth.passwordMin"));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await resetPassword(sessionEmail, sessionCode, password);
+      Alert.alert(t("common.success"), t("auth.passwordChanged"));
+      router.replace("/(auth)/login");
+    } catch (err) {
+      setError(getErrorMessage(err, t("auth.changePasswordFailed")));
+      if (getErrorMessage(err, "").toLowerCase().includes("kod")) {
+        await clearPasswordResetSession();
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
         <AuthLayout>
-        <BackButton/>
-          <AuthHeader title="Ndrysho Fjalëkalimin" />
+          <BackButton />
+          <AuthHeader title={t("auth.resetPassword")} />
 
           <View style={styles.formContainer}>
             <PasswordInput
               value={password}
               onChangeText={setPassword}
-              placeholder="Fjalëkalimi"
+              placeholder={t("auth.newPassword")}
               secureTextEntry={securePassword}
               onToggleSecure={() => setSecurePassword(!securePassword)}
             />
@@ -56,7 +123,7 @@ export default function NewPasswordScreen() {
               <PasswordInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                placeholder="Konfirmo fjalëkalimin"
+                placeholder={t("auth.confirmPassword")}
                 secureTextEntry={secureConfirmPassword}
                 onToggleSecure={() =>
                   setSecureConfirmPassword(!secureConfirmPassword)
@@ -65,8 +132,14 @@ export default function NewPasswordScreen() {
             </View>
           </View>
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <View style={styles.buttonContainer}>
-            <AuthButton title="Ruaj" onPress={handleSave} />
+            {loading ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <AuthButton title={t("common.save")} onPress={handleSave} />
+            )}
           </View>
         </AuthLayout>
       </View>
@@ -84,5 +157,11 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 45,
     alignItems: "center",
+  },
+  errorText: {
+    color: "red",
+    textAlign: "center",
+    marginTop: 10,
+    fontSize: 13,
   },
 });

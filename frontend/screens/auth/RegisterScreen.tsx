@@ -6,15 +6,18 @@ import {
   Text,
   View,
 } from "react-native";
-import api from "@/api";
+
 import AuthButton from "@/components/auth/AuthButton";
 import AuthFooter from "@/components/auth/AuthFooter";
 import AuthHeader from "@/components/auth/AuthHeader";
 import AuthLayout from "@/components/auth/AuthLayout";
 import CustomInput from "@/components/auth/CustomInput";
 import PasswordInput from "@/components/auth/PasswordInput";
+import { useI18n } from "@/i18n/I18nProvider";
+import { getErrorMessage, register } from "@/services/authService";
 
 export default function RegisterScreen() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -29,89 +32,79 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     setError("");
 
-    if (!email || !firstName || !lastName || !password || !confirmPassword) {
-      setError("Ju lutem plotësoni të gjitha fushat.");
+    if (!email.trim() || !firstName.trim() || !lastName.trim() || !password || !confirmPassword) {
+      setError(t("auth.fillAllFields"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Fjalëkalimet nuk përputhen.");
+      setError(t("auth.passwordMismatch"));
       return;
     }
 
     if (password.length < 8) {
-      setError("Fjalëkalimi duhet të ketë të paktën 8 karaktere.");
+      setError(t("auth.passwordMin"));
       return;
     }
 
     try {
       setLoading(true);
-      const response = await api.post("/auth/register", {
-        name: firstName,
-        surname: lastName,
-        email: email,
-        password: password,
-        phone: phone,
+      await register({
+        email,
+        firstName,
+        lastName,
+        phone,
+        password,
       });
-
-      console.log("Registered successfully:", response.data);
       router.replace("/(tabs)/map");
-    } catch (err: any) {
-      if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError("Diçka shkoi keq. Provoni përsëri.");
-      }
+    } catch (err) {
+      setError(getErrorMessage(err, t("auth.registerFailed")));
     } finally {
       setLoading(false);
     }
   };
 
-  const goToLogin = () => {
-    router.replace("/(auth)/login");
-  };
-
   return (
     <AuthLayout>
       <View style={styles.headerContainer}>
-        <AuthHeader title="Regjistrohu" compact />
+        <AuthHeader title={t("auth.register")} compact />
       </View>
       <View style={styles.formContainer}>
         <CustomInput
           value={email}
           onChangeText={setEmail}
-          placeholder="E-mail"
+          placeholder={t("auth.emailPlaceholder")}
           icon="email"
         />
         <CustomInput
           value={firstName}
           onChangeText={setFirstName}
-          placeholder="Emri i përdoruesit"
+          placeholder={t("auth.firstNamePlaceholder")}
           icon="person-outline"
         />
         <CustomInput
           value={lastName}
           onChangeText={setLastName}
-          placeholder="Mbiemri i përdoruesit"
+          placeholder={t("auth.lastNamePlaceholder")}
           icon="person-outline"
         />
         <CustomInput
           value={phone}
           onChangeText={setPhone}
-          placeholder="Numri i telefonit"
+          placeholder={t("auth.phonePlaceholder")}
           icon="phone"
         />
         <PasswordInput
           value={password}
           onChangeText={setPassword}
-          placeholder="Fjalëkalimi"
+          placeholder={t("auth.password")}
           secureTextEntry={securePassword}
           onToggleSecure={() => setSecurePassword(!securePassword)}
         />
         <PasswordInput
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          placeholder="Konfirmo fjalëkalimin"
+          placeholder={t("auth.confirmPassword")}
           secureTextEntry={secureConfirmPassword}
           onToggleSecure={() =>
             setSecureConfirmPassword(!secureConfirmPassword)
@@ -127,13 +120,13 @@ export default function RegisterScreen() {
         {loading ? (
           <ActivityIndicator size="large" color="#fff" />
         ) : (
-          <AuthButton title="Regjistrohu" onPress={handleRegister} />
+          <AuthButton title={t("auth.register")} onPress={handleRegister} />
         )}
       </View>
       <AuthFooter
-        text="Keni një llogari? "
-        linkText="Kyçu."
-        onPress={goToLogin}
+        text={t("auth.haveAccount")}
+        linkText={t("auth.loginLink")}
+        onPress={() => router.replace("/(auth)/login")}
       />
     </AuthLayout>
   );

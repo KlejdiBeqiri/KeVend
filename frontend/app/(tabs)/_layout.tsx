@@ -8,8 +8,8 @@ export default function TabsLayout() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="map" />
-      <Tabs.Screen name="reservation-history" />
       <Tabs.Screen name="home" />
+      <Tabs.Screen name="notifications" />
       <Tabs.Screen name="account" />
     </Tabs>
   );

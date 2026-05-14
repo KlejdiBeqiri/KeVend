@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+
 import colors from "../colors";
 import fonts from "../fonts";
 
@@ -9,12 +10,12 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 45,
+    paddingBottom: 48,
   },
 
   content: {
     alignItems: "center",
-    paddingTop: 20,
+    paddingTop: 18,
   },
 
   avatarWrapper: {
@@ -30,83 +31,97 @@ const styles = StyleSheet.create({
 
   section: {
     width: "100%",
-    paddingHorizontal: 27,
-    marginTop: 20,
+    paddingHorizontal: 24,
+    marginTop: 22,
   },
 
   sectionTitle: {
     color: colors.white,
-    fontSize: 20,
+    fontSize: 21,
+    fontFamily: fonts.interSemiBold,
+    marginBottom: 12,
+  },
+
+  sectionSubtitle: {
+    color: "#94A3B8",
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: fonts.interRegular,
-    marginBottom: 10,
+    marginTop: -4,
+    marginBottom: 12,
   },
 
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 27,
+    marginBottom: 18,
+    gap: 12,
   },
 
   inputGroup: {
-    width: "48%",
+    flex: 1,
+  },
+
+  inputGroupWide: {
+    width: "100%",
   },
 
   label: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fonts.interRegular,
-    marginBottom: 7,
-  },
-
-  labelLarge: {
-    color: colors.white,
-    fontSize: 17,
-    fontFamily: fonts.interSemiBold,
-    marginBottom: 7,
-  },
-
-  input: {
-    height: 40,
-    borderRadius: 15,
-    backgroundColor: "#323232",
-    paddingHorizontal: 13,
-    color: colors.white,
-    fontSize: 14,
-    fontFamily: fonts.interRegular,
+    marginBottom: 8,
   },
 
   inputPressable: {
-    height: 40,
-    borderRadius: 15,
+    minHeight: 48,
+    borderRadius: 16,
     backgroundColor: "#323232",
-    paddingHorizontal: 13,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
 
   inputText: {
-      flex: 1,
+    flex: 1,
     color: "#E1E1E1",
     fontSize: 14,
     fontFamily: fonts.interRegular,
   },
 
   passwordPressable: {
-    width: "48%",
-    alignSelf: "flex-end",  // ← replaces marginTop: 25
+    width: "100%",
+    marginBottom: 26,
+  },
+
+  profileErrorText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: fonts.interRegular,
+    marginBottom: 10,
+  },
+
+  profileSavingText: {
+    color: "#93C5FD",
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: fonts.interRegular,
+    marginBottom: 6,
   },
 
   passwordButton: {
-    height: 40,
-    borderRadius: 15,
+    minHeight: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
 
   passwordButtonText: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: fonts.interSemiBold,
   },
 
@@ -115,13 +130,23 @@ const styles = StyleSheet.create({
   },
 
   darkCard: {
-    height: 41,
-    borderRadius: 13,
+    minHeight: 58,
+    borderRadius: 16,
     backgroundColor: "#323232",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
+    gap: 12,
+  },
+
+  cardContentWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   cardText: {
@@ -130,14 +155,27 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interSemiBold,
   },
 
+  primaryPill: {
+    backgroundColor: "rgba(48, 128, 255, 0.22)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  primaryPillText: {
+    color: "#DCE9FF",
+    fontSize: 11,
+    fontFamily: fonts.interSemiBold,
+  },
+
   lightCard: {
-    height: 41,
-    borderRadius: 13,
-    backgroundColor: "rgba(255, 255, 255, 0.65)",
+    minHeight: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
+    gap: 6,
   },
 
   lightCardText: {
@@ -146,45 +184,91 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interSemiBold,
   },
 
-  paypalIcon: {
-    color: "#008CFF",
-    fontSize: 22,
-    fontFamily: fonts.interSemiBold,
-    marginRight: 10,
+  paymentLogo: {
+    width: 28,
+    height: 28,
+    resizeMode: "contain",
+  },
+
+  paymentInfoWrap: {
+    flex: 1,
   },
 
   paymentText: {
-    flex: 1,
     color: colors.white,
-    fontSize: 15,
+    fontSize: 14,
+    fontFamily: fonts.interSemiBold,
+  },
+
+  paymentMetaText: {
+    marginTop: 3,
+    color: "#A7A7A7",
+    fontSize: 12,
     fontFamily: fonts.interRegular,
   },
 
   invoiceRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "space-between",
+    backgroundColor: "#171717",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    marginTop: 2,
   },
 
   invoiceText: {
     color: colors.white,
-    fontSize: 20,
-    fontFamily: fonts.interRegular,
+    fontSize: 18,
+    fontFamily: fonts.interSemiBold,
+  },
+
+  languageRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 22,
+  },
+
+  languagePill: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 16,
+    backgroundColor: "#232323",
+    borderWidth: 1,
+    borderColor: "#3A3A3A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  languagePillActive: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#FFFFFF",
+  },
+
+  languagePillText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: fonts.interSemiBold,
+  },
+
+  languagePillTextActive: {
+    color: "#000000",
   },
 
   actionButtonsRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 50,
+    marginTop: 42,
     marginBottom: 40,
-    gap: 15,
+    gap: 12,
   },
 
   logoutButton: {
     width: 150,
-    height: 40,
-    borderRadius: 20,
+    height: 44,
+    borderRadius: 24,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
@@ -194,14 +278,14 @@ const styles = StyleSheet.create({
 
   logoutText: {
     color: "#E50000",
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: fonts.interSemiBold,
   },
 
   deleteButton: {
     width: 150,
-    height: 40,
-    borderRadius: 20,
+    height: 44,
+    borderRadius: 24,
     backgroundColor: "#E50000",
     alignItems: "center",
     justifyContent: "center",
@@ -209,210 +293,119 @@ const styles = StyleSheet.create({
 
   deleteText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fonts.interSemiBold,
   },
 
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(79, 79, 79, 0.49)",
+    backgroundColor: "rgba(15, 23, 42, 0.48)",
     justifyContent: "center",
     alignItems: "center",
-  },
-
-  editOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.15)",
-    justifyContent: "flex-end",
-  },
-
-  editModal: {
-    width: "100%",
-    height: 360,
-    backgroundColor: "#323232",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
-
-  editPhoneModal: {
-    width: "100%",
-    height: 520,
-    backgroundColor: "#323232",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
-
-  editHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 42,
-  },
-
-  editCancel: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontFamily: fonts.interRegular,
-  },
-
-  editTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontFamily: fonts.interSemiBold,
-    letterSpacing: 1,
-  },
-
-  editSave: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontFamily: fonts.interSemiBold,
-  },
-
-  editInput: {
-    width: "100%",
-    height: 50,
-    borderRadius: 13,
-    backgroundColor: "#F0F0F0",
-    paddingHorizontal: 15,
-    color: "#000000",
-    fontSize: 15,
-    fontFamily: fonts.interSemiBold,
-  },
-
-  phoneSectionLabel: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontFamily: fonts.interRegular,
-    marginBottom: 8,
-  },
-
-  phoneBox: {
-    backgroundColor: "#F0F0F0",
-    borderRadius: 13,
-    overflow: "hidden",
-    marginBottom: 34,
-  },
-
-  phoneRow: {
-    height: 38,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-  },
-
-  phoneLeftText: {
-    width: 75,
-    color: "#000000",
-    fontSize: 12,
-    fontFamily: fonts.interSemiBold,
-  },
-
-  phoneCountryText: {
-    flex: 1,
-    color: "#43A047",
-    fontSize: 12,
-    fontFamily: fonts.interRegular,
-  },
-
-  phoneInput: {
-    flex: 1,
-    height: "100%",
-    color: "#000000",
-    fontSize: 12,
-    fontFamily: fonts.interRegular,
-    padding: 0,
+    paddingHorizontal: 18,
   },
 
   plateModal: {
-    width: 383,
-    height: 438,
+    width: "100%",
+    maxWidth: 390,
     backgroundColor: "#FFFFFF",
     borderRadius: 30,
-    paddingHorizontal: 30,
-    paddingTop: 36,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 24,
   },
 
   paymentModal: {
-    width: 383,
-    height: 363,
+    width: "100%",
+    maxWidth: 390,
     backgroundColor: "#FFFFFF",
     borderRadius: 30,
-    paddingHorizontal: 30,
-    paddingTop: 36,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 24,
+  },
+
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  modalHeaderSpacer: {
+    width: 32,
+    height: 32,
   },
 
   closeButton: {
-    position: "absolute",
-    right: 16,
-    top: 14,
-    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   modalTitle: {
+    flex: 1,
     color: "#000000",
-    fontSize: 20,
-    lineHeight: 22,
+    fontSize: 21,
+    lineHeight: 24,
     fontFamily: fonts.interSemiBold,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+
+  modalSubtitle: {
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: fonts.interRegular,
     textAlign: "center",
     marginBottom: 20,
   },
 
   modalLabel: {
-    color: "#000000",
-    fontSize: 16,
+    color: "#111827",
+    fontSize: 15,
     lineHeight: 18,
     fontFamily: fonts.interSemiBold,
-    marginBottom: 7,
+    marginBottom: 8,
   },
 
   modalInput: {
     width: "100%",
-    height: 50,
-    borderRadius: 13,
-    backgroundColor: "#ECECEC",
-    paddingHorizontal: 20,
+    minHeight: 50,
+    borderRadius: 15,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 18,
     color: "#000000",
     fontSize: 14,
     fontFamily: fonts.interRegular,
-    marginBottom: 13,
+    marginBottom: 14,
   },
 
-  modalPasswordInput: {
-    width: "100%",
-    height: 50,
-    borderRadius: 13,
-    backgroundColor: "#ECECEC",
-    paddingLeft: 20,
-    paddingRight: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 13,
-  },
-
-  passwordModalTextInput: {
-    flex: 1,
-    height: "100%",
-    color: "#000000",
-    fontSize: 14,
+  modalErrorText: {
+    color: "#DC2626",
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: fonts.interRegular,
+    marginTop: -4,
+    marginBottom: 10,
   },
 
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 1,
+    marginTop: 4,
   },
 
   modalCheckbox: {
-    width: 12,
-    height: 12,
+    width: 14,
+    height: 14,
     borderWidth: 1,
     borderColor: "#000000",
-    borderRadius: 1,
+    borderRadius: 3,
     marginRight: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -424,19 +417,38 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interRegular,
   },
 
-  modalSaveButton: {
-    width: 164,
-    height: 40,
-    borderRadius: 30,
+  modalFooter: {
+    marginTop: 24,
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  modalGhostButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 24,
+    backgroundColor: "#EDEFF3",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
-    marginTop: 20,
+  },
+
+  modalGhostText: {
+    color: "#111827",
+    fontSize: 14,
+    fontFamily: fonts.interSemiBold,
+  },
+
+  modalSaveButton: {
+    width: 146,
+    minHeight: 44,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   modalSaveText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: fonts.interSemiBold,
   },
 
@@ -491,99 +503,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.interSemiBold,
   },
-sheetOverlay: {
-  flex: 1,
-  justifyContent: "flex-end",
-  backgroundColor: "rgba(0,0,0,0.35)",
-},
-
-sheetContainer: {
-  height: "58%",
-  backgroundColor: "#323232", 
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
-  paddingTop: 8,
-},
-
-phoneSheetContainer: {
-  height: "70%",
-  backgroundColor: "#323232", 
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
-  paddingTop: 8,
-},
-
-sheetHandle: {
-  display: "none", 
-},
-
-sheetHeader: {
-  height: 52,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingHorizontal: 20,
-},
-
-sheetCancel: {
-  fontSize: 18,
-  fontWeight: "400",
-  color: "#FFFFFF", 
-},
-
-sheetTitle: {
-  fontSize: 18,
-  fontWeight: "500",
-  color: "#FFFFFF", 
-  letterSpacing: 1,
-},
-
-sheetSave: {
-  fontSize: 18,
-  fontWeight: "600",
-  color: "#FFFFFF", 
-  letterSpacing: 1,
-},
-
-sheetContent: {
-  paddingHorizontal: 20,
-  paddingTop: 38,
-},
-
-sheetInput: {
-  height: 50,
-  borderRadius: 13,
-  backgroundColor: "#F0F0F0", 
-  paddingHorizontal: 18,
-  fontSize: 16,
-  fontWeight: "500",
-  color: "#000000",
-  letterSpacing: 1,
-},
-photoOptionsModal: {
-  width: "82%",
-  backgroundColor: "#FFFFFF",
-  borderRadius: 18,
-  overflow: "hidden",
-},
-
-photoOptionRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 14,
-  paddingVertical: 16,
-  paddingHorizontal: 20,
-},
-
-photoOptionText: {
-  fontSize: 16,
-  color: "#000000",
-},
-
-photoOptionDivider: {
-  height: 1,
-  backgroundColor: "#E5E5E5",
-},
 });
 
 export default styles;

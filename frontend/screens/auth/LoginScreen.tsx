@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Keyboard,
   StyleSheet,
   Text,
@@ -16,22 +17,34 @@ import AuthLayout from "@/components/auth/AuthLayout";
 import CustomInput from "@/components/auth/CustomInput";
 import PasswordInput from "@/components/auth/PasswordInput";
 import colors from "@/constants/colors";
+import { useI18n } from "@/i18n/I18nProvider";
+import { getErrorMessage, login } from "@/services/authService";
 
 export default function LoginScreen() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError("");
 
-    if (!email || !password) {
-      setError("Ju lutem plotësoni të gjitha fushat.");
+    if (!email.trim() || !password.trim()) {
+      setError(t("auth.fillAllFields"));
       return;
     }
 
-    router.replace("/(tabs)/map");
+    try {
+      setLoading(true);
+      await login(email, password);
+      router.replace("/(tabs)/map");
+    } catch (err) {
+      setError(getErrorMessage(err, t("auth.loginFailed")));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,22 +52,22 @@ export default function LoginScreen() {
       <View style={{ flex: 1 }}>
         <AuthLayout>
           <AuthHeader
-            title="Mirë se vini"
-            subtitle="Rezervoni vendin tuaj të parkimit"
+            title={t("auth.welcome")}
+            subtitle={t("auth.welcomeSubtitle")}
           />
 
           <View style={styles.formContainer}>
             <CustomInput
               value={email}
               onChangeText={setEmail}
-              placeholder="E-mail"
+              placeholder={t("auth.emailPlaceholder")}
               icon="email"
             />
 
             <PasswordInput
               value={password}
               onChangeText={setPassword}
-              placeholder="Fjalëkalimi"
+              placeholder={t("auth.password")}
               secureTextEntry={secureText}
               onToggleSecure={() => setSecureText(!secureText)}
             />
@@ -65,19 +78,23 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={() => router.push("/(auth)/forgot-password")}
             >
-              <Text style={styles.forgotText}>Keni harruar fjalëkalimin?</Text>
+              <Text style={styles.forgotText}>{t("auth.forgotPassword")}</Text>
             </TouchableOpacity>
           </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <View style={styles.buttonContainer}>
-            <AuthButton title="Kyçu" onPress={handleLogin} />
+            {loading ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <AuthButton title={t("auth.login")} onPress={handleLogin} />
+            )}
           </View>
 
           <AuthFooter
-            text="Nuk keni një llogari? "
-            linkText="Regjistrohuni."
+            text={t("auth.noAccount")}
+            linkText={t("auth.registerLink")}
             onPress={() => router.replace("/(auth)/register")}
           />
         </AuthLayout>
