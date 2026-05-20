@@ -72,8 +72,8 @@ const getStatusInfo = (
   if (parking.availableSpots === 0 || parking.status === "FULL") {
     return { label: labels.full, color: "#EF4444" };
   }
-  if (parking.availableSpots <= 10) {
-    return { label: labels.limited, color: "#F59E0B" };
+  if (parking.availableSpots < 10) {
+    return { label: labels.limited, color: "#EF4444" };
   }
   return { label: labels.open, color: "#22C55E" };
 };
@@ -1019,17 +1019,17 @@ const styles = StyleSheet.create({
     shadowColor: "#000000",
     shadowOpacity: 0.25,
     shadowRadius: 14,
-    elevation: 10,
+    elevation: 20,
   },
   ctaTopLabel: {
     color: "#91A2B8",
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.interRegular,
   },
   ctaPrice: {
     marginTop: 4,
     color: colors.white,
-    fontSize: 20,
+    fontSize: 25,
     fontFamily: fonts.interSemiBold,
   },
   reserveButton: {
@@ -1134,7 +1134,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     minHeight: 50,
     borderRadius: 18,
-    backgroundColor: "#0B8BFF",
+    backgroundColor: "#00358B",
     alignItems: "center",
     justifyContent: "center",
   },

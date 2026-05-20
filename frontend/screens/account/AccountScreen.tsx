@@ -299,10 +299,12 @@ export default function AccountScreen() {
                     />
                   </View>
                 </View>
+
+
               </View>
 
               <View style={styles.row}>
-                <View style={styles.inputGroupWide}>
+                <View style={styles.inputGroup}>
                   <Text style={styles.label}>{t("common.email")}</Text>
                   <View style={styles.inputPressable} pointerEvents="none">
                     <TextInput
@@ -314,24 +316,22 @@ export default function AccountScreen() {
                     />
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.row}>
-                <View style={styles.inputGroupWide}>
+                <View style={styles.inputGroup}>
                   <Text style={styles.label}>{t("common.phone")}</Text>
                   <View style={styles.inputPressable}>
                     <TextInput
-                      style={styles.inputText}
-                      placeholder={t("common.phone")}
-                      placeholderTextColor="rgba(225, 225, 225, 0.83)"
-                      value={phone}
-                      onChangeText={(value) => {
-                        setPhone(value);
-                        setProfileDirty(true);
-                        setProfileSaveState("idle");
-                        if (profileError) setProfileError("");
-                      }}
-                      keyboardType="phone-pad"
+                        style={styles.inputText}
+                        placeholder={t("common.phone")}
+                        placeholderTextColor="rgba(225, 225, 225, 0.83)"
+                        value={phone}
+                        onChangeText={(value) => {
+                          setPhone(value);
+                          setProfileDirty(true);
+                          setProfileSaveState("idle");
+                          if (profileError) setProfileError("");
+                        }}
+                        keyboardType="phone-pad"
                     />
                   </View>
                 </View>
@@ -364,7 +364,7 @@ export default function AccountScreen() {
                 {plates.map((plate) => (
                   <View key={plate.id} style={styles.darkCard}>
                     <View style={styles.cardContentWrap}>
-                      <Text style={styles.cardText}>{plate.plate}</Text>
+                      <Text style={styles.cardTextPrimary}>{plate.plate}</Text>
                       {plate.primaryVehicle ? (
                         <View style={styles.primaryPill}>
                           <Text style={styles.primaryPillText}>{t("account.primary")}</Text>

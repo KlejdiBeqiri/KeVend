@@ -15,7 +15,7 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    @Value("${JWT_SECRET}")
+    @Value("${jwt.secret:${JWT_SECRET:}}")
     private String secretKey;
 
     // Access token: 15 minutes (short-lived, paired with refresh token)

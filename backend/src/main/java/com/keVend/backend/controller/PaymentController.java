@@ -2,9 +2,13 @@ package com.keVend.backend.controller;
 
 import com.keVend.backend.dto.PaymentRequest;
 import com.keVend.backend.dto.PaymentResponse;
+import com.keVend.backend.dto.PayPalOrderCaptureRequest;
+import com.keVend.backend.dto.PayPalOrderCreateRequest;
+import com.keVend.backend.dto.PayPalOrderResponse;
 import com.keVend.backend.i18n.I18n;
 import com.keVend.backend.payments.PaymentGateway;
 import com.keVend.backend.security.UserDetailsImpl;
+import com.keVend.backend.service.PayPalSandboxService;
 import com.keVend.backend.service.PaymentService;
 import com.keVend.backend.service.ReservationService;
 import jakarta.validation.Valid;
@@ -24,7 +28,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final ReservationService reservationService;
-    /** Optional — only present when Stripe is configured. */
+    private final PayPalSandboxService payPalSandboxService;
     private final ObjectProvider<PaymentGateway> gateways;
     private final I18n i18n;
 
@@ -44,11 +48,13 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.forReservation(reservationId, principal.getUser()));
     }
 
-    /**
-     * FR-05 card path. Mints a provider-specific intent (Stripe today; PayBY/POK
-     * will plug in via the same {@link PaymentGateway} interface) and returns
-     * the client secret the mobile app needs to complete the charge.
-     */
+    @GetMapping("/me")
+    public ResponseEntity<java.util.List<PaymentResponse>> myPayments(
+            @AuthenticationPrincipal UserDetailsImpl principal
+    ) {
+        return ResponseEntity.ok(paymentService.myPayments(principal.getUser()));
+    }
+
     @PostMapping("/intent")
     public ResponseEntity<Map<String, String>> intent(
             @RequestParam Long reservationId,
@@ -70,5 +76,21 @@ public class PaymentController {
                 "clientSecret", result.clientSecret(),
                 "provider", provider
         ));
+    }
+
+    @PostMapping("/paypal/order")
+    public ResponseEntity<PayPalOrderResponse> createPayPalOrder(
+            @AuthenticationPrincipal UserDetailsImpl principal,
+            @Valid @RequestBody PayPalOrderCreateRequest request
+    ) {
+        return ResponseEntity.ok(payPalSandboxService.createOrder(principal.getUser(), request));
+    }
+
+    @PostMapping("/paypal/capture")
+    public ResponseEntity<PaymentResponse> capturePayPalOrder(
+            @AuthenticationPrincipal UserDetailsImpl principal,
+            @Valid @RequestBody PayPalOrderCaptureRequest request
+    ) {
+        return ResponseEntity.ok(payPalSandboxService.captureOrder(principal.getUser(), request));
     }
 }

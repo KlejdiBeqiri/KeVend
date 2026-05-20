@@ -11,15 +11,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
-
-    /** F-10: aggregates only become public once at least this many reviews exist. */
-    private static final int MIN_REVIEWS_PUBLIC = 5;
 
     private final ReviewRepository reviewRepository;
     private final ReservationService reservationService;
@@ -48,23 +44,34 @@ public class ReviewService {
         return reviewRepository.save(review);
     }
 
-    /**
-     * F-10: returns aggregate + visible items only when threshold is reached.
-     * Below the threshold, only the count is exposed.
-     */
     public ReviewSummary publicSummary(Long parkingId) {
-        long count = reviewRepository.countByParkingId(parkingId);
-        if (count < MIN_REVIEWS_PUBLIC) {
-            return new ReviewSummary(count, null, Collections.emptyList());
-        }
         List<Review> reviews = reviewRepository.findByParkingIdOrderByCreatedAtDesc(parkingId);
+        long count = reviews.size();
         double avg = reviews.stream().mapToInt(Review::getRating).average().orElse(0);
+
         List<ReviewSummary.Item> items = reviews.stream()
                 .map(r -> new ReviewSummary.Item(
+                        r.getDriver() != null ? r.getDriver().getId() : null,
+                        r.getDriver() != null ? r.getDriver().getName() : null,
+                        r.getDriver() != null ? r.getDriver().getSurname() : null,
+                        r.getId(),
                         r.getRating(),
                         r.getComment(),
                         r.getCreatedAt() != null ? r.getCreatedAt().toString() : null))
                 .toList();
+
         return new ReviewSummary(count, Math.round(avg * 10.0) / 10.0, items);
+    }
+
+    @Transactional
+    public void deleteReview(User driver, Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> i18n.notFound("error.review.not_found"));
+
+        if (review.getDriver() == null || !review.getDriver().getId().equals(driver.getId())) {
+            throw i18n.forbidden("error.review.not_your_review");
+        }
+
+        reviewRepository.delete(review);
     }
 }

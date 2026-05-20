@@ -2,7 +2,6 @@ package com.keVend.backend.controller;
 
 import com.keVend.backend.dto.ReviewRequest;
 import com.keVend.backend.dto.ReviewSummary;
-import com.keVend.backend.model.Review;
 import com.keVend.backend.security.UserDetailsImpl;
 import com.keVend.backend.service.ReviewService;
 import jakarta.validation.Valid;
@@ -19,14 +18,23 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @PostMapping("/reviews")
-    public ResponseEntity<Review> create(
+    public ResponseEntity<Void> create(
             @Valid @RequestBody ReviewRequest req,
             @AuthenticationPrincipal UserDetailsImpl principal
     ) {
-        return ResponseEntity.ok(reviewService.createForReservation(principal.getUser(), req));
+        reviewService.createForReservation(principal.getUser(), req);
+        return ResponseEntity.noContent().build();
     }
 
-    /** Public — does not require auth (the SecurityConfig allows GET on parking-lots/**). */
+    @DeleteMapping("/reviews/{id}")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl principal
+    ) {
+        reviewService.deleteReview(principal.getUser(), id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/parking-lots/{id}/reviews")
     public ResponseEntity<ReviewSummary> forParking(@PathVariable Long id) {
         return ResponseEntity.ok(reviewService.publicSummary(id));

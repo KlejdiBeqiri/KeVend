@@ -1,9 +1,11 @@
 package com.keVend.backend.service;
 
 import com.keVend.backend.dto.ParkingResponse;
+import com.keVend.backend.dto.ParkingPriceTierDto;
 import com.keVend.backend.dto.ParkingUpsertRequest;
 import com.keVend.backend.i18n.I18n;
 import com.keVend.backend.model.Parking;
+import com.keVend.backend.model.ParkingPriceTier;
 import com.keVend.backend.model.User;
 import com.keVend.backend.repository.ParkingRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class ParkingService {
     private final OwnerSubscriptionService ownerSubscriptionService;
     private final I18n i18n;
 
+    @Transactional(readOnly = true)
     public List<ParkingResponse> search(
             String zone,
             BigDecimal minPrice,
@@ -60,6 +63,7 @@ public class ParkingService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public ParkingResponse getById(Long id) {
         return ParkingResponse.from(loadOrThrow(id));
     }
@@ -108,14 +112,16 @@ public class ParkingService {
         parkingRepository.delete(p);
     }
 
+    @Transactional(readOnly = true)
     public List<ParkingResponse> listOwnedBy(Long ownerId) {
         return parkingRepository.findByOwnerId(ownerId).stream()
                 .map(ParkingResponse::from)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public Parking loadOrThrow(Long id) {
-        return parkingRepository.findById(id)
+        return parkingRepository.findWithPriceTiersById(id)
                 .orElseThrow(() -> i18n.notFound("error.parking.not_found"));
     }
 
@@ -132,12 +138,59 @@ public class ParkingService {
         p.setLongitude(req.getLongitude());
         p.setTotalSpots(req.getTotalSpots());
         p.setAvailableSpots(req.getAvailableSpots());
-        p.setPricePerHour(req.getPricePerHour());
+        applyPricing(p, req.getPricePerHour(), req.getPriceTiers());
+        p.setMaxVehicleHeightMeters(req.getMaxVehicleHeightMeters());
+        p.getImageUrls().clear();
+        if (req.getImageUrls() != null) {
+            p.getImageUrls().addAll(
+                    req.getImageUrls().stream()
+                            .filter(url -> url != null && !url.isBlank())
+                            .limit(3)
+                            .toList()
+            );
+        }
         p.setOpenTime(req.getOpenTime());
         p.setCloseTime(req.getCloseTime());
         if (req.getPromotionRank() != null) {
             p.setPromotionRank(req.getPromotionRank());
         }
+    }
+
+    private void applyPricing(Parking parking, BigDecimal flatPrice, List<ParkingPriceTierDto> priceTiers) {
+        parking.getPriceTiers().clear();
+
+        if (priceTiers != null && !priceTiers.isEmpty()) {
+            BigDecimal firstPrice = null;
+
+            for (int index = 0; index < priceTiers.size(); index++) {
+                ParkingPriceTierDto dto = priceTiers.get(index);
+
+                if (dto.getFromHour() == null || dto.getToHour() == null || dto.getPrice() == null) {
+                    throw i18n.badRequest("error.parking.invalid_pricing_tier");
+                }
+
+                if (dto.getToHour() <= dto.getFromHour()) {
+                    throw i18n.badRequest("error.parking.invalid_pricing_tier");
+                }
+
+                ParkingPriceTier tier = new ParkingPriceTier();
+                tier.setParking(parking);
+                tier.setFromHour(dto.getFromHour());
+                tier.setToHour(dto.getToHour());
+                tier.setPrice(dto.getPrice());
+                tier.setDisplayOrder(index);
+                parking.getPriceTiers().add(tier);
+
+                if (firstPrice == null) {
+                    firstPrice = dto.getPrice();
+                }
+            }
+
+            parking.setPricePerHour(firstPrice);
+            return;
+        }
+
+        parking.setPricePerHour(flatPrice);
     }
 
     private static double haversineKm(double lat1, double lng1, double lat2, double lng2) {

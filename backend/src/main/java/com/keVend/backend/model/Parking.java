@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "parkings", indexes = {
@@ -33,6 +35,18 @@ public class Parking {
     private Integer availableSpots;
 
     private BigDecimal pricePerHour;
+
+    private Double maxVehicleHeightMeters;
+
+    @OneToMany(mappedBy = "parking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC, fromHour ASC, toHour ASC")
+    private List<ParkingPriceTier> priceTiers = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "parking_images", joinColumns = @JoinColumn(name = "parking_id"))
+    @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
+    @OrderColumn(name = "display_order")
+    private List<String> imageUrls = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private Status status;

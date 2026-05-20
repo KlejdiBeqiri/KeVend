@@ -155,6 +155,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interSemiBold,
   },
 
+  cardTextPrimary: {
+    flex: 1,
+    color: colors.white,
+    fontSize: 14,
+    fontFamily: fonts.interSemiBold,
+  },
+
   primaryPill: {
     backgroundColor: "rgba(48, 128, 255, 0.22)",
     borderRadius: 999,

@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -28,15 +27,12 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationService {
-
-    /** FR-07: warning window before reservation expiry. */
-    private static final int EXPIRY_WARNING_MINUTES = 10;
-    /** FR-08: how often to re-nag an unpaid driver. */
-    private static final int UNPAID_REMINDER_HOURS = 1;
+    private static final long EXPIRY_NOTIFICATION_SWEEP_MS = 5_000;
 
     private final NotificationRepository notificationRepository;
     private final ReservationRepository reservationRepository;
     private final SmsGateway smsGateway;
+    private final ExpoPushService expoPushService;
     private final I18n i18n;
 
     /** Render a notification message bundle key in the user's preferred language. */
@@ -73,10 +69,19 @@ public class NotificationService {
                 }
             }
         } else {
-            n.setDeliveryStatus(Notification.DeliveryStatus.DELIVERED);
+            n.setDeliveryStatus(Notification.DeliveryStatus.PENDING);
         }
 
         Notification saved = notificationRepository.save(n);
+
+        if (channel == Notification.NotificationChannel.PUSH) {
+            boolean delivered = expoPushService.send(saved);
+            saved.setDeliveryStatus(delivered
+                    ? Notification.DeliveryStatus.DELIVERED
+                    : Notification.DeliveryStatus.FAILED);
+            saved = notificationRepository.save(saved);
+        }
+
         log.info("[notification] type={} channel={} status={} user={} reservation={}",
                 type, channel, saved.getDeliveryStatus(),
                 user.getId(), reservation != null ? reservation.getId() : null);
@@ -87,29 +92,25 @@ public class NotificationService {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    @Transactional
+    public Notification sendTestPush(User user) {
+        String message = "Ky eshte nje test notification nga KeVend. Nese po e sheh, push-i po funksionon.";
+        return record(
+                user,
+                null,
+                Notification.NotificationType.RESERVATION_CONFIRMATION,
+                Notification.NotificationChannel.PUSH,
+                message
+        );
+    }
+
     /**
-     * FR-07: every minute, dispatch both expiry-related notifications:
-     *  - first warning 10 minutes before endTime (sent once)
-     *  - second notification at the moment endTime is reached (sent once)
+     * Only dispatch the final "time expired" notification.
      */
-    @Scheduled(fixedRate = 60_000)
+    @Scheduled(fixedRate = EXPIRY_NOTIFICATION_SWEEP_MS)
     @Transactional
     public void dispatchExpiryNotifications() {
         Instant now = Instant.now();
-        Instant warningUntil = now.plus(EXPIRY_WARNING_MINUTES, ChronoUnit.MINUTES);
-
-        // FR-07 part 1: 10-minute warning
-        for (Reservation r : reservationRepository.findUpcomingExpiries(now, warningUntil)) {
-            String msg = renderFor(r.getDriver(),
-                    "notification.expiry.warning",
-                    r.getParking().getName(), EXPIRY_WARNING_MINUTES);
-            record(r.getDriver(), r, Notification.NotificationType.EXPIRY_WARNING,
-                    Notification.NotificationChannel.PUSH, msg);
-            r.setExpiryWarningSent(true);
-            reservationRepository.save(r);
-        }
-
-        // FR-07 part 2: at-expiry notification
         for (Reservation r : reservationRepository.findReachedExpiriesNeedingNotification(now)) {
             String msg = renderFor(r.getDriver(),
                     "notification.expiry.reached",
@@ -121,26 +122,4 @@ public class NotificationService {
         }
     }
 
-    /**
-     * FR-08: every 30 minutes, re-nag drivers whose paid session has lapsed
-     * but they haven't extended/paid the overage. Limited to once per
-     * UNPAID_REMINDER_HOURS to avoid spam.
-     */
-    @Scheduled(fixedRate = 30 * 60_000)
-    @Transactional
-    public void sendUnpaidReminders() {
-        Instant now = Instant.now();
-        for (Reservation r : reservationRepository.findExpiredConfirmed(now)) {
-            LocalDateTime cutoff = LocalDateTime.now().minusHours(UNPAID_REMINDER_HOURS);
-            long recent = notificationRepository.countRecentByReservationAndType(
-                    r.getId(), Notification.NotificationType.UNPAID_REMINDER, cutoff);
-            if (recent > 0) continue;
-
-            String msg = renderFor(r.getDriver(),
-                    "notification.unpaid.reminder",
-                    r.getParking().getName());
-            record(r.getDriver(), r, Notification.NotificationType.UNPAID_REMINDER,
-                    Notification.NotificationChannel.PUSH, msg);
-        }
-    }
 }

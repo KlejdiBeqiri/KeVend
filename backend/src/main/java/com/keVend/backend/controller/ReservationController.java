@@ -35,6 +35,14 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.confirm(id, principal.getUser()));
     }
 
+    @PostMapping("/{id}/confirm-test")
+    public ResponseEntity<ReservationResponse> confirmTest(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl principal
+    ) {
+        return ResponseEntity.ok(reservationService.confirmForTesting(id, principal.getUser()));
+    }
+
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ReservationResponse> cancel(
             @PathVariable Long id,
@@ -57,5 +65,12 @@ public class ReservationController {
             @AuthenticationPrincipal UserDetailsImpl principal
     ) {
         return ResponseEntity.ok(reservationService.historyForDriver(principal.getUser().getId()));
+    }
+
+    @GetMapping("/me/current")
+    public ResponseEntity<ReservationResponse> myCurrentReservation(
+            @AuthenticationPrincipal UserDetailsImpl principal
+    ) {
+        return ResponseEntity.ok(reservationService.currentForDriver(principal.getUser().getId()));
     }
 }

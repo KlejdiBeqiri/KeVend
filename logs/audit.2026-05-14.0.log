@@ -1,0 +1,9 @@
+2026-05-14 00:34:06.431 [cid=0f242c39-00f9-4e7c-b821-77310ffe494e] type=login.failure email=sidritrrustemi@gmail.com
+2026-05-14 00:34:15.308 [cid=7f171830-a313-4650-b2b2-e24676df6653] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-14 00:52:37.493 [cid=4a528b6a-af69-4e74-9996-68df8591834d] type=login.failure email=sidritrrustemi@gmail.com
+2026-05-14 00:52:44.441 [cid=0a3887e6-1fbb-4e89-bde6-b7522ea167f1] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-14 08:31:31.558 [cid=141fbd6a-f617-4a2b-a5eb-339fa21ecd7d] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-14 09:04:04.182 [cid=711919c0-063b-4b6d-84d8-d4abbbb0707a] type=login.failure email=sidritrrustemi@gmail.com
+2026-05-14 09:04:16.201 [cid=234e18dd-deef-479c-84f6-8326fe94231d] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-14 12:32:16.793 [cid=a874fccb-e6e8-489d-a8d2-5ab47331e35a] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-14 23:55:40.997 [cid=ce4f8337-f31f-4124-969a-f335b6848277] type=payment.recorded reservationId=41 driverId=1 provider=PAYPAL currency=EUR amount=0.52

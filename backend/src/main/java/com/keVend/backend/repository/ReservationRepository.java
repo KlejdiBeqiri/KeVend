@@ -13,7 +13,40 @@ import java.util.List;
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
-    List<Reservation> findByDriverIdOrderByIdDesc(Long driverId, Pageable pageable);
+    @Query("""
+            SELECT r FROM Reservation r
+            LEFT JOIN FETCH r.parking p
+            WHERE r.driver.id = :driverId
+            ORDER BY r.id DESC
+            """)
+    List<Reservation> findHistoryForDriver(
+            @Param("driverId") Long driverId,
+            Pageable pageable);
+
+    @Query("""
+            SELECT r FROM Reservation r
+            LEFT JOIN FETCH r.parking p
+            WHERE r.driver.id = :driverId
+              AND (
+                  (
+                      r.status = com.keVend.backend.model.Reservation.ReservationStatus.SOFT_HOLD
+                      AND r.holdExpiresAt > :now
+                  )
+                  OR (
+                      r.status = com.keVend.backend.model.Reservation.ReservationStatus.CONFIRMED
+                      AND r.endTime > :now
+                  )
+                  OR (
+                      r.status = com.keVend.backend.model.Reservation.ReservationStatus.COMPLETED
+                      AND r.endTime > :now
+                  )
+              )
+            ORDER BY r.id DESC
+            """)
+    List<Reservation> findCurrentForDriver(
+            @Param("driverId") Long driverId,
+            @Param("now") Instant now,
+            Pageable pageable);
 
     List<Reservation> findByParkingId(Long parkingId);
 
@@ -33,6 +66,26 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findActiveAtParkingForDriver(
             @Param("driverId") Long driverId,
             @Param("parkingId") Long parkingId);
+
+    @Query("""
+            SELECT r FROM Reservation r
+            WHERE r.driver.id = :driverId
+              AND (
+                  (
+                      r.status = com.keVend.backend.model.Reservation.ReservationStatus.SOFT_HOLD
+                      AND r.holdExpiresAt > :now
+                  )
+                  OR (
+                      r.status = com.keVend.backend.model.Reservation.ReservationStatus.CONFIRMED
+                      AND r.endTime > :now
+                  )
+              )
+            ORDER BY r.id DESC
+            """)
+    List<Reservation> findActiveForDriver(
+            @Param("driverId") Long driverId,
+            @Param("now") Instant now,
+            Pageable pageable);
 
     /** FR-13: owner sees daily session list. */
     @Query("""
@@ -62,11 +115,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("now") Instant now,
             @Param("until") Instant until);
 
-    /** Background sweep: confirmed reservations whose holdExpiresAt has passed. */
+    /** Background sweep: confirmed reservations whose session end-time has passed. */
     @Query("""
             SELECT r FROM Reservation r
             WHERE r.status = com.keVend.backend.model.Reservation.ReservationStatus.CONFIRMED
-              AND r.holdExpiresAt < :now
+              AND r.endTime <= :now
             """)
     List<Reservation> findExpiredConfirmed(@Param("now") Instant now);
 
@@ -76,7 +129,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      */
     @Query("""
             SELECT r FROM Reservation r
-            WHERE r.status = com.keVend.backend.model.Reservation.ReservationStatus.CONFIRMED
+            WHERE r.status IN (
+                  com.keVend.backend.model.Reservation.ReservationStatus.CONFIRMED,
+                  com.keVend.backend.model.Reservation.ReservationStatus.COMPLETED
+              )
               AND r.expiryReachedSent = false
               AND r.endTime <= :now
             """)

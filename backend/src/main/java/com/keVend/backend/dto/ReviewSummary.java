@@ -21,6 +21,10 @@ public class ReviewSummary {
     @Data
     @AllArgsConstructor
     public static class Item {
+        private Long userId;
+        private String reviewerName;
+        private String reviewerSurname;
+        private Long reviewId;
         private int rating;
         private String comment;
         private String createdAt;

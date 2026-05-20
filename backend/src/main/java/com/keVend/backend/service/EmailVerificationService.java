@@ -6,6 +6,7 @@ import com.keVend.backend.model.User;
 import com.keVend.backend.repository.EmailVerificationTokenRepository;
 import com.keVend.backend.repository.UserRepository;
 import com.keVend.backend.security.TokenHashUtil;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.util.Base64;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class EmailVerificationService {
 
@@ -71,7 +73,12 @@ public class EmailVerificationService {
                         "Click the link below to verify your email address (expires in 24 hours):\n" +
                         verificationUrl
         );
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to send verification email to {}", user.getEmail(), ex);
+            throw ex;
+        }
     }
 
     /**

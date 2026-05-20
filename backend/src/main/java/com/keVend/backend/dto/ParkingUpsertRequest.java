@@ -1,10 +1,15 @@
 package com.keVend.backend.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class ParkingUpsertRequest {
@@ -28,15 +33,27 @@ public class ParkingUpsertRequest {
     @Min(0)
     private Integer availableSpots;
 
-    @NotNull
     @DecimalMin(value = "0.0", inclusive = false)
     private BigDecimal pricePerHour;
+
+    @DecimalMin(value = "0.0", inclusive = false)
+    private Double maxVehicleHeightMeters;
+
+    private List<ParkingPriceTierDto> priceTiers;
+
+    private List<String> imageUrls;
 
     private LocalDateTime openTime;
 
     private LocalDateTime closeTime;
 
-    /** FR-12 promoted listings — owners pay extra for higher rank. */
     @Min(0)
     private Integer promotionRank;
+
+    @AssertTrue(message = "Either pricePerHour or priceTiers is required")
+    public boolean isPricingPresent() {
+        boolean hasFlatPrice = pricePerHour != null && pricePerHour.compareTo(BigDecimal.ZERO) > 0;
+        boolean hasPriceTiers = priceTiers != null && !priceTiers.isEmpty();
+        return hasFlatPrice || hasPriceTiers;
+    }
 }

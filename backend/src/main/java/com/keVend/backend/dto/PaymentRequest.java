@@ -4,6 +4,8 @@ import com.keVend.backend.model.Payment;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 @Data
 public class PaymentRequest {
 
@@ -18,6 +20,9 @@ public class PaymentRequest {
 
     @NotNull
     private Payment.Currency currency;
+
+    /** Optional settled amount in the payment currency when a gateway converted from the local price. */
+    private BigDecimal amount;
 
     /** Optional reference returned by the upstream gateway/SMS provider. */
     private String transactionReference;

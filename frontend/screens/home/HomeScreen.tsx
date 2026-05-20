@@ -170,13 +170,6 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.spotsBadge}>
-              <Text style={styles.spotsText}>
-                {t("home.freeSpots", {
-                  count: activeReservation.parkingAvailableSpots ?? activeReservation.spotsReserved,
-                })}
-              </Text>
-            </View>
           </Pressable>
         ) : (
           <View style={styles.currentCard}>
@@ -206,7 +199,9 @@ export default function HomeScreen() {
               >
                 <HistoryPreviewCard
                   imageUrl={parkingPreviews[item.parkingId]}
-                  spots={t("home.freeSpots", { count: item.spotsReserved })}
+                  spots={t("home.freeSpots", {
+                    count: item.parkingAvailableSpots ?? item.spotsReserved,
+                  })}
                   statusColor={
                     item.status === "CONFIRMED" || item.status === "SOFT_HOLD"
                       ? "#6ACA6A"
@@ -271,13 +266,11 @@ function HistoryPreviewCard({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   scrollContent: {
-    paddingTop: 50,
     paddingHorizontal: 20,
     paddingBottom: 120,
   },
   header: {
-    top: -50,
-    height: 70,
+    height: 55,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -291,8 +284,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: "#FFFFFF",
-    fontSize: 28,
-    marginTop: 12,
+    fontSize: 25,
+    marginTop: 40,
     marginBottom: 14,
   },
   loadingBlock: {
@@ -305,35 +298,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 24,
+    height: 130,
   },
   imagePlaceholder: {
-    width: 110,
-    height: 90,
+    width: 122,
+    height: 110,
     backgroundColor: "#555",
     borderRadius: 12,
   },
   previewImage: {
-    width: 110,
-    height: 90,
+    width: 122,
+    height: 110,
     borderRadius: 12,
     backgroundColor: "#555",
   },
   currentInfo: {
     flex: 1,
     marginLeft: 12,
+    height: 110,
+    justifyContent:"space-between"
   },
   currentName: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "600",
+    width: 300,
+    marginTop:10,
   },
   currentAddress: {
-    color: "#BFBFBF",
-    fontSize: 13,
-    marginTop: 4,
+    color: "#fff",
+    fontSize: 15,
   },
   statusBadge: {
-    marginTop: 10,
+    marginTop: 15,
+    marginBottom: 1,
     alignSelf: "flex-start",
     backgroundColor: "rgba(106,202,106,0.28)",
     borderRadius: 16,
@@ -345,24 +343,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  spotsBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#ED0000",
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  spotsText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "600",
-  },
   partnerCard: {
     width: 230,
+    height: 280,
     backgroundColor: "#191919",
     borderRadius: 18,
     marginRight: 14,
     padding: 12,
+
   },
   partnerImagePlaceholder: {
     width: "100%",

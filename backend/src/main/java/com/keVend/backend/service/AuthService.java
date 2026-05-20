@@ -69,10 +69,7 @@ public class AuthService {
                 accessToken,
                 refreshToken,
                 user.getRole().name(),
-                user.getId(),
-                user.getName(),
-                user.getSurname(),
-                user.getPhone()
+                user.getId()
         );
     }
 
@@ -116,10 +113,7 @@ public class AuthService {
                 accessToken,
                 refreshToken,
                 user.getRole().name(),
-                user.getId(),
-                user.getName(),
-                user.getSurname(),
-                user.getPhone()
+                user.getId()
         );
     }
 
@@ -135,10 +129,7 @@ public class AuthService {
                 newAccessToken,
                 newRefreshToken,
                 user.getRole().name(),
-                user.getId(),
-                user.getName(),
-                user.getSurname(),
-                user.getPhone()
+                user.getId()
         );
     }
 

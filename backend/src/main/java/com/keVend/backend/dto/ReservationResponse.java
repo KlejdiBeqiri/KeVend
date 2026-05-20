@@ -14,11 +14,13 @@ public class ReservationResponse {
     private Long id;
     private Long parkingId;
     private String parkingName;
+    private Integer parkingAvailableSpots;
     private int spotsReserved;
     private Reservation.ReservationStatus status;
     private Instant holdExpiresAt;
     private Instant startTime;
     private Instant endTime;
+    private String vehiclePlate;
     private BigDecimal totalCost;
     private BigDecimal platformCommission;
     private BigDecimal ownerRevenue;
@@ -28,11 +30,13 @@ public class ReservationResponse {
                 .id(r.getId())
                 .parkingId(r.getParking() != null ? r.getParking().getId() : null)
                 .parkingName(r.getParking() != null ? r.getParking().getName() : null)
+                .parkingAvailableSpots(r.getParking() != null ? r.getParking().getAvailableSpots() : null)
                 .spotsReserved(r.getSpotsReserved())
                 .status(r.getStatus())
                 .holdExpiresAt(r.getHoldExpiresAt())
                 .startTime(r.getStartTime())
                 .endTime(r.getEndTime())
+                .vehiclePlate(r.getVehiclePlate())
                 .totalCost(r.getTotalCost())
                 .platformCommission(r.getPlatformCommission())
                 .ownerRevenue(r.getOwnerRevenue())

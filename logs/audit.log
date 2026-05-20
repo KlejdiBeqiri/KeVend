@@ -1,1 +1,4 @@
-2026-05-07 18:12:55.766 [cid=854642fd-746b-472b-b9b6-6e48490463e7] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-20 00:11:06.985 [cid=4e26b7ab-0ddc-4d9a-a8a5-ed7bd8b8541e] type=login.failure email=sidritrrustemi@gmail.com
+2026-05-20 00:11:14.251 [cid=d218a6ed-ebaa-4f01-8f2c-805a062c53ac] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-20 11:02:17.225 [cid=ebc1fd2e-dd5f-4c17-aa87-6eb688547930] type=login.success userId=1 email=sidritrrustemi@gmail.com
+2026-05-20 11:24:14.384 [cid=e6b92e41-faf9-451d-beeb-a48a4c4c7c34] type=payment.recorded reservationId=45 driverId=1 provider=PAYPAL currency=EUR amount=0.52

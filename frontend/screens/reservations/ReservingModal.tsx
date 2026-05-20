@@ -528,10 +528,7 @@ export default function ReservingModal({
                       <View style={styles.summaryCard}>
                         <Text style={styles.summaryLabel}>{t("reservation.feeLabel")}</Text>
                         <Text style={styles.summaryPrice}>{totalCost} ALL</Text>
-                        <Text style={styles.summaryFee}>{t("reservation.fixedFeeText")}</Text>
-                        <Text style={styles.summaryHint}>
-                          {t("reservation.estimatedPaypal", { amount: estimatedEur })}
-                        </Text>
+
                       </View>
 
                       <Pressable
@@ -540,7 +537,7 @@ export default function ReservingModal({
                         disabled={submitting || vehicles.length === 0 || paymentMethods.length === 0}
                       >
                         <LinearGradient
-                          colors={["#3080FF", "#00358B"]}
+                          colors={["#3080FF", "#00358B", "#00358B"]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={styles.saveGradient}
@@ -580,7 +577,7 @@ export default function ReservingModal({
                   >
                     <Ionicons
                       name={resultType === "success" ? "checkmark" : "close"}
-                      size={58}
+                      size={40}
                       color="#FFFFFF"
                     />
                   </View>
@@ -729,17 +726,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   summaryCard: {
+    flexDirection: "row",
+    justifyContent:"space-between",
+    alignItems: "center",
     marginTop: 20,
     borderRadius: 20,
-    backgroundColor: "#0F172A",
-    padding: 16,
+    backgroundColor: "#002260",
+    paddingVertical: 20,
+    paddingHorizontal: 15
   },
   summaryLabel: {
-    color: "#B8C7DA",
-    fontSize: 12,
+    color: "#e0ecff",
+    fontSize: 14,
   },
   summaryPrice: {
-    marginTop: 8,
     color: "#FFFFFF",
     fontSize: 26,
     fontWeight: "700",
@@ -812,9 +812,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   successCircle: {
+    height: 90,
+    width: 90,
     backgroundColor: "#16A34A",
   },
   errorCircle: {
+    height: 90,
+    width: 90,
     backgroundColor: "#DC2626",
   },
   resultText: {

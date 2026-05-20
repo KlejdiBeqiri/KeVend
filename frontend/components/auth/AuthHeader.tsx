@@ -28,21 +28,21 @@ export default function AuthHeader({ title, subtitle, compact }: Props) {
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    marginTop: 100, 
+    marginTop: 50,
   },
 
   compactContainer: {
-    marginTop: 40, 
+    marginTop: 60,
   },
 
   logo: {
-    width: 174,       
-    height: 57,
+    width: 200,
+    height: 66,
     marginBottom: 110, 
   },
 
   compactLogo: {
-    marginBottom: 40, 
+    marginBottom: 50,
   },
 
 

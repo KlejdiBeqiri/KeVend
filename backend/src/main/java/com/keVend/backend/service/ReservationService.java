@@ -4,6 +4,7 @@ import com.keVend.backend.dto.ReservationResponse;
 import com.keVend.backend.dto.SoftHoldRequest;
 import com.keVend.backend.i18n.I18n;
 import com.keVend.backend.model.Parking;
+import com.keVend.backend.model.ParkingPriceTier;
 import com.keVend.backend.model.Promotion;
 import com.keVend.backend.model.Reservation;
 import com.keVend.backend.model.User;
@@ -21,18 +22,22 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
 
-    private static final int SOFT_HOLD_MINUTES = 5;       // F-02
+    private static final long RESERVATION_SWEEP_MS = 5_000;
+    private static final int SOFT_HOLD_MINUTES = 10;      // F-02
+    private static final int RESERVATION_DURATION_MINUTES = 10;
     private static final int MAX_SPOTS_PER_DRIVER = 5;    // FR-19 / F-12 cap per parking
+    private static final BigDecimal RESERVATION_FEE = new BigDecimal("50.00");
 
     private final ReservationRepository reservationRepository;
     private final ParkingRepository parkingRepository;
-    private final CommissionService commissionService;
     private final PromotionService promotionService;
+    private final NotificationService notificationService;
     private final I18n i18n;
 
     /**
@@ -53,9 +58,9 @@ public class ReservationService {
             throw i18n.conflict("error.reservation.not_enough_spots");
         }
 
-        // FR-19 / F-04: one fee per parking — block second active reservation in the same lot
+        // One active reservation total per driver across all parkings.
         List<Reservation> existing = reservationRepository
-                .findActiveAtParkingForDriver(driver.getId(), parking.getId());
+                .findActiveForDriver(driver.getId(), Instant.now(), PageRequest.of(0, 1));
         if (!existing.isEmpty()) {
             throw i18n.conflict("error.reservation.duplicate_at_parking");
         }
@@ -66,9 +71,8 @@ public class ReservationService {
         }
         parkingRepository.save(parking);
 
-        BigDecimal grossCost = parking.getPricePerHour()
+        BigDecimal parkingSubtotal = resolveReservationPrice(parking, 1)
                 .multiply(BigDecimal.valueOf(req.getSpots()))
-                .multiply(BigDecimal.valueOf(req.getHours()))
                 .setScale(2, RoundingMode.HALF_UP);
 
         // FR-10: optional promo applied at hold time. Per-user limits are
@@ -77,28 +81,33 @@ public class ReservationService {
         Promotion promo = promotionService.resolve(req.getPromoCode())
                 .filter(p -> promotionService.canDriverRedeem(p, driver))
                 .orElse(null);
-        BigDecimal totalCost = promotionService.apply(grossCost, promo)
+        BigDecimal discountedSubtotal = promotionService.apply(parkingSubtotal, promo)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalCost = RESERVATION_FEE.setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal commissionRate = commissionService.rateFor(parking, Instant.now());
-        BigDecimal commission = totalCost.multiply(commissionRate).setScale(2, RoundingMode.HALF_UP);
-
+        Instant now = Instant.now();
         Reservation r = new Reservation();
         r.setDriver(driver);
         r.setParking(parking);
         r.setSpotsReserved(req.getSpots());
         r.setStatus(Reservation.ReservationStatus.SOFT_HOLD);
-        r.setHoldExpiresAt(Instant.now().plus(SOFT_HOLD_MINUTES, ChronoUnit.MINUTES));
+        r.setHoldExpiresAt(now.plus(SOFT_HOLD_MINUTES, ChronoUnit.MINUTES));
         // Provisional times — finalised on confirm
-        r.setStartTime(null);
-        r.setEndTime(Instant.now().plus(req.getHours(), ChronoUnit.HOURS));
+        r.setStartTime(now);
+        r.setEndTime(now.plus(RESERVATION_DURATION_MINUTES, ChronoUnit.MINUTES));
+        r.setVehiclePlate(req.getVehiclePlate().trim().toUpperCase());
         r.setTotalCost(totalCost);
-        r.setPlatformCommission(commission);
-        r.setOwnerRevenue(totalCost.subtract(commission));
+        r.setPlatformCommission(RESERVATION_FEE);
+        r.setOwnerRevenue(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
         Reservation saved = reservationRepository.save(r);
         if (promo != null) {
-            promotionService.recordRedemption(promo, driver, saved, grossCost.subtract(totalCost));
+            promotionService.recordRedemption(
+                    promo,
+                    driver,
+                    saved,
+                    parkingSubtotal.subtract(discountedSubtotal)
+            );
         }
         return ReservationResponse.from(saved);
     }
@@ -119,16 +128,36 @@ public class ReservationService {
         }
 
         Instant now = Instant.now();
-        long sessionSeconds = r.getEndTime() != null
-                ? java.time.Duration.between(r.getHoldExpiresAt().minus(SOFT_HOLD_MINUTES, ChronoUnit.MINUTES), r.getEndTime()).toSeconds()
-                : 3600L;
         r.setStartTime(now);
-        r.setEndTime(now.plusSeconds(sessionSeconds));
+        r.setEndTime(now.plus(RESERVATION_DURATION_MINUTES, ChronoUnit.MINUTES));
+        r.setHoldExpiresAt(now.plus(SOFT_HOLD_MINUTES, ChronoUnit.MINUTES));
         r.setStatus(Reservation.ReservationStatus.CONFIRMED);
         r.setExpiryWarningSent(false);
         r.setExpiryReachedSent(false);
 
         return ReservationResponse.from(reservationRepository.save(r));
+    }
+
+    /**
+     * Local/dev-only convenience path for UI testing: confirms a soft hold
+     * without running the external PayPal flow.
+     */
+    @Transactional
+    public ReservationResponse confirmForTesting(Long reservationId, User driver) {
+        ReservationResponse response = confirm(reservationId, driver);
+        Reservation confirmed = loadOrThrow(reservationId);
+
+        String msg = notificationService.renderFor(driver,
+                "notification.checkin.confirmation",
+                confirmed.getParking().getName(),
+                confirmed.getSpotsReserved(),
+                confirmed.getTotalCost(),
+                "ALL");
+        notificationService.record(driver, confirmed,
+                com.keVend.backend.model.Notification.NotificationType.RESERVATION_CONFIRMATION,
+                com.keVend.backend.model.Notification.NotificationChannel.PUSH, msg);
+
+        return response;
     }
 
     @Transactional
@@ -147,19 +176,30 @@ public class ReservationService {
     }
 
     /** FR-10: returns the driver's last 10 sessions, newest first. */
+    @Transactional(readOnly = true)
     public List<ReservationResponse> historyForDriver(Long driverId) {
         return reservationRepository
-                .findByDriverIdOrderByIdDesc(driverId, PageRequest.of(0, 10))
+                .findHistoryForDriver(driverId, PageRequest.of(0, 10))
                 .stream().map(ReservationResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public ReservationResponse currentForDriver(Long driverId) {
+        return reservationRepository.findCurrentForDriver(driverId, Instant.now(), PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .map(ReservationResponse::from)
+                .orElse(null);
+    }
+
+    @Transactional(readOnly = true)
     public ReservationResponse get(Long id, User caller) {
         Reservation r = ownedByOrThrow(id, caller);
         return ReservationResponse.from(r);
     }
 
     /** Background sweep — clears expired soft-holds (F-02). */
-    @Scheduled(fixedRate = 60_000)
+    @Scheduled(fixedRate = RESERVATION_SWEEP_MS)
     @Transactional
     public void releaseExpiredHolds() {
         List<Reservation> expired = reservationRepository.findByStatusAndHoldExpiresAtBefore(
@@ -173,7 +213,7 @@ public class ReservationService {
     }
 
     /** Background sweep — marks confirmed reservations as completed once endTime passes. */
-    @Scheduled(fixedRate = 60_000)
+    @Scheduled(fixedRate = RESERVATION_SWEEP_MS)
     @Transactional
     public void completeExpiredSessions() {
         for (Reservation r : reservationRepository.findExpiredConfirmed(Instant.now())) {
@@ -203,5 +243,31 @@ public class ReservationService {
             parking.setStatus(Parking.Status.OPEN);
         }
         parkingRepository.save(parking);
+    }
+
+    private BigDecimal resolveReservationPrice(Parking parking, int hours) {
+        List<ParkingPriceTier> tiers = parking.getPriceTiers();
+        if (tiers == null || tiers.isEmpty()) {
+            return parking.getPricePerHour().multiply(BigDecimal.valueOf(hours));
+        }
+
+        Optional<ParkingPriceTier> matchingTier = tiers.stream()
+                .sorted(java.util.Comparator.comparing(ParkingPriceTier::getDisplayOrder))
+                .filter(tier -> hours > tier.getFromHour() && hours <= tier.getToHour())
+                .findFirst();
+
+        if (matchingTier.isPresent()) {
+            return matchingTier.get().getPrice();
+        }
+
+        ParkingPriceTier lastTier = tiers.stream()
+                .sorted(java.util.Comparator.comparing(ParkingPriceTier::getDisplayOrder).reversed())
+                .findFirst()
+                .orElse(null);
+        if (lastTier != null && hours > lastTier.getToHour()) {
+            return lastTier.getPrice();
+        }
+
+        return parking.getPricePerHour().multiply(BigDecimal.valueOf(hours));
     }
 }

@@ -31,6 +31,8 @@ public class Reservation {
     private Instant startTime;
     private Instant endTime;
 
+    private String vehiclePlate;
+
     /** FR-07: marker so the 10-minute warning is sent once and only once. */
     @Column(nullable = false)
     private boolean expiryWarningSent = false;

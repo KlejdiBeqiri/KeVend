@@ -1,5 +1,5 @@
-import MapExplorer from "@/components/map/MapExplorer";
+import MapExplorerGuest from "@/components/map/MapExplorerGuest";
 
 export default function MapGuestScreen() {
-  return <MapExplorer variant="guest" />;
+  return <MapExplorerGuest variant="guest" />;
 }

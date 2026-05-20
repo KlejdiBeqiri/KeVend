@@ -186,28 +186,7 @@ export default function NotificationsScreen() {
           />
         </View>
 
-        <View style={styles.heroCard}>
-          <View style={styles.heroIcon}>
-            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-          </View>
-          <View style={styles.heroBody}>
-            <Text style={styles.heroEyebrow}>{t("notifications.center")}</Text>
-            <Text style={styles.heroTitle}>{t("notifications.allInOne")}</Text>
-            <Text style={styles.heroMeta}>
-              {t("notifications.stats", { count: notifications.length, delivered: deliveredCount })}
-            </Text>
-            <Pressable
-              style={[styles.testButton, triggeringTest && styles.testButtonDisabled]}
-              onPress={handleTriggerTest}
-              disabled={triggeringTest}
-            >
-              <Ionicons name="flash-outline" size={16} color="#031225" />
-              <Text style={styles.testButtonText}>
-                {triggeringTest ? t("notifications.sendingTest") : t("notifications.sendTest")}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+
 
         {loading ? (
           <View style={styles.centerState}>
@@ -283,94 +262,32 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#050816",
+    backgroundColor: "#000",
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingTop: 44,
-    paddingBottom: 120,
   },
   header: {
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 50,
   },
   logo: {
     width: 145,
     height: 55,
   },
-  heroCard: {
-    borderRadius: 26,
-    backgroundColor: "#101A33",
-    padding: 18,
-    flexDirection: "row",
-    gap: 14,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.16)",
-    marginBottom: 22,
-  },
-  heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: "#2563EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroBody: {
-    flex: 1,
-  },
-  heroEyebrow: {
-    color: "#93C5FD",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  heroTitle: {
-    marginTop: 6,
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "700",
-    lineHeight: 28,
-  },
-  heroMeta: {
-    marginTop: 8,
-    color: "#94A3B8",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  testButton: {
-    marginTop: 14,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#E2ECFF",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  testButtonDisabled: {
-    opacity: 0.7,
-  },
-  testButtonText: {
-    color: "#031225",
-    fontSize: 13,
-    fontWeight: "700",
-  },
   centerState: {
     paddingVertical: 60,
     alignItems: "center",
-    justifyContent: "center",
   },
   stateCard: {
     borderRadius: 24,
-    backgroundColor: "#0F172A",
+    backgroundColor: "#000",
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.14)",
     paddingHorizontal: 20,
     paddingVertical: 28,
     alignItems: "center",
+    top:150
+
   },
   stateText: {
     marginTop: 12,
@@ -380,8 +297,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptyImage: {
-    width: 86,
-    height: 86,
+    width: 130,
+    height: 117,
+    marginBottom: 20
   },
   emptyTitle: {
     marginTop: 16,
@@ -394,8 +312,8 @@ const styles = StyleSheet.create({
   },
   groupLabel: {
     marginBottom: 10,
-    color: "#CBD5E1",
-    fontSize: 15,
+    color: "#e3e8ee",
+    fontSize: 16,
     fontWeight: "700",
   },
   card: {

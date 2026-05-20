@@ -21,7 +21,6 @@ export default function NoInvoicesScreen() {
         />
       </View>
 
-      <Text style={styles.title}>{t("invoices.title")}</Text>
 
       <View style={styles.emptyContainer}>
         <Image
@@ -32,8 +31,6 @@ export default function NoInvoicesScreen() {
 
         <Text style={styles.emptyText}>{t("invoices.empty")}</Text>
       </View>
-
-      <BottomTabBar activeTab="account" />
     </SafeAreaView>
   );
 }
@@ -54,16 +51,6 @@ const styles = StyleSheet.create({
     width: 145,
     height: 55,
   },
-  title: {
-    position: "absolute",
-    top: 155,
-    left: 32,
-    fontSize: 30,
-    lineHeight: 37,
-    letterSpacing: 0,
-    color: "#FFFFFF",
-    fontFamily: fonts.interRegular,
-  },
   emptyContainer: {
     position: "absolute",
     top: "30%",
@@ -72,8 +59,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   emptyImage: {
-    width: 145,
-    height: 130,
+    width: 130,
+    height: 117,
     marginTop: 100,
     marginBottom: 35,
   },

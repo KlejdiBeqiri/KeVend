@@ -16,11 +16,11 @@ export default function ScreenHeader() {
 const styles = StyleSheet.create({
   header: {
     alignItems: "center",
-    paddingTop: 20,
+    marginBottom: 30
   },
 
   logo: {
-    width: 144,
+    width: 145,
     height: 55,
   },
 });

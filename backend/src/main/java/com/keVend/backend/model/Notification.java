@@ -40,6 +40,7 @@ public class Notification {
 
     public enum NotificationType {
         CHECK_IN_CONFIRMATION,
+        SOFT_HOLD_EXPIRED,
         EXPIRY_WARNING,
         EXPIRY_REACHED,
         UNPAID_REMINDER,

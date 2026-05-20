@@ -13,9 +13,24 @@ import java.util.Optional;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
-    Optional<Payment> findByReservationId(Long reservationId);
+    @Query("""
+            SELECT p FROM Payment p
+            LEFT JOIN FETCH p.reservation r
+            LEFT JOIN FETCH r.parking
+            WHERE p.reservation.id = :reservationId
+            """)
+    Optional<Payment> findByReservationId(@Param("reservationId") Long reservationId);
 
     List<Payment> findByDriverId(Long driverId);
+
+    @Query("""
+            SELECT p FROM Payment p
+            LEFT JOIN FETCH p.reservation r
+            LEFT JOIN FETCH r.parking
+            WHERE p.driver.id = :driverId
+            ORDER BY p.paidAt DESC, p.id DESC
+            """)
+    List<Payment> findByDriverIdOrderByPaidAtDescIdDesc(@Param("driverId") Long driverId);
 
     /** Drives FR-17 owner revenue chart for a date range. */
     @Query("""

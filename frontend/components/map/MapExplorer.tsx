@@ -60,6 +60,8 @@ type DriveEstimate = {
   minutes: number | null;
 };
 
+type EffectiveParkingStatus = "OPEN" | "FULL" | "CLOSED";
+
 const TIRANA_REGION = {
   latitude: 41.3275,
   longitude: 19.8189,
@@ -76,7 +78,6 @@ const PRICE_FILTERS = [
 ];
 
 const SORT_OPTIONS: { label: string; value: SortMode; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: "map.sortSmart", value: "smart", icon: "sparkles-outline" },
   { label: "map.sortNearest", value: "nearest", icon: "navigate-outline" },
   { label: "map.sortCheapest", value: "price", icon: "cash-outline" },
   { label: "map.sortAvailability", value: "availability", icon: "car-sport-outline" },
@@ -132,21 +133,46 @@ const matchesQuery = (lot: ParkingLot, text: string) => {
   );
 };
 
+const getTimePartsInTirana = () => {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Tirane",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(new Date());
+    const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+    const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+    return { hour, minute };
+  } catch {
+    const now = new Date();
+    return {
+      hour: String(now.getHours()).padStart(2, "0"),
+      minute: String(now.getMinutes()).padStart(2, "0"),
+    };
+  }
+};
+
 const isOpenNow = (lot: ParkingLot) => {
   if (lot.status === "CLOSED") {
     return false;
   }
 
   if (!lot.openTime || !lot.closeTime) {
-    return lot.status !== "CLOSED";
+    return true;
   }
 
   const open = lot.openTime.substring(11, 16);
   const close = lot.closeTime.substring(11, 16);
-  const now = new Date();
-  const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const { hour, minute } = getTimePartsInTirana();
+  const current = `${hour}:${minute}`;
 
-  return open <= current && current <= close;
+  if (open <= close) {
+    return open <= current && current <= close;
+  }
+
+  return current >= open || current <= close;
 };
 
 const formatDriveDistance = (
@@ -176,10 +202,21 @@ const formatHours = (lot: ParkingLot, open247Label: string) => {
 const getStartingPrice = (lot: ParkingLot) =>
   lot.priceTiers.length > 0 ? Number(lot.priceTiers[0].price) : Number(lot.pricePerHour);
 
-const getStatusTone = (lot: ParkingLot) => {
-  if (lot.status === "CLOSED") return "#5F6B7A";
-  if (lot.availableSpots === 0 || lot.status === "FULL") return "#E34D59";
-  if (lot.availableSpots <= 10) return "#FF9F1C";
+const getEffectiveStatus = (lot: DecoratedParkingLot): EffectiveParkingStatus => {
+  if (!lot.computedOpenNow) return "CLOSED";
+  if (lot.availableSpots === 0 || lot.status === "FULL") return "FULL";
+  if (lot.status === "CLOSED") return "CLOSED";
+  return "OPEN";
+};
+
+const isAvailableNow = (lot: DecoratedParkingLot) =>
+  lot.computedOpenNow && lot.availableSpots > 0 && lot.status !== "CLOSED";
+
+const getStatusTone = (lot: DecoratedParkingLot) => {
+  const status = getEffectiveStatus(lot);
+  if (status === "CLOSED") return "#5F6B7A";
+  if (status === "FULL") return "#5F6B7A";
+  if (lot.availableSpots < 10) return "#E34D59";
   return "#22C55E";
 };
 
@@ -224,7 +261,6 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
 
       if (shouldUseCachedFirst) {
         setParkingLots(cached);
-        setSelectedLotId((current) => current ?? cached[0]?.id ?? null);
         setLoading(false);
       } else if (options?.showLoader) {
         setLoading(true);
@@ -239,7 +275,6 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
         setMapError("");
         const data = await fetchParkingLots();
         setParkingLots(data);
-        setSelectedLotId((current) => current ?? data[0]?.id ?? null);
         hasLoadedOnceRef.current = true;
       } catch (error) {
         if (!shouldUseCachedFirst) {
@@ -259,7 +294,6 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
     const initialCached = getCachedParkingLots();
     if (initialCached && initialCached.length > 0) {
       setParkingLots(initialCached);
-      setSelectedLotId((current) => current ?? initialCached[0]?.id ?? null);
       setLoading(false);
       hasLoadedOnceRef.current = true;
     }
@@ -323,7 +357,7 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
   const filteredLots = useMemo(() => {
     const next = decoratedLots.filter((lot) => {
       if (!matchesQuery(lot, deferredQuery)) return false;
-      if (filters.availableOnly && (lot.availableSpots <= 0 || lot.status !== "OPEN")) return false;
+      if (filters.availableOnly && !isAvailableNow(lot)) return false;
       if (filters.openNowOnly && !lot.computedOpenNow) return false;
       if (filters.selectedZone && lot.zone !== filters.selectedZone) return false;
       if (filters.maxPrice != null && getStartingPrice(lot) > filters.maxPrice) return false;
@@ -345,7 +379,7 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
 
       const score = (lot: DecoratedParkingLot) => {
         let value = 0;
-        if (lot.status === "OPEN") value += 30;
+        if (getEffectiveStatus(lot) === "OPEN") value += 30;
         if (lot.computedOpenNow) value += 15;
         value += Math.min(lot.availableSpots, 60);
         value -= getStartingPrice(lot) / 10;
@@ -367,7 +401,7 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
   const quickZones = zoneOptions.slice(0, 4);
 
   const focusOnLot = (lot: ParkingLot) => {
-    setSelectedLotId(lot.id);
+    setSelectedLotId((current) => current ?? lot.id);
     setQuery(lot.name);
     setShowSuggestions(false);
     Keyboard.dismiss();
@@ -539,6 +573,7 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
         onPress={() => {
           Keyboard.dismiss();
           setShowSuggestions(false);
+          setFiltersExpanded(false);
         }}
         showsUserLocation={variant === "auth"}
         showsMyLocationButton={false}
@@ -554,7 +589,10 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
             pinColor={selectedLotId === lot.id ? "#0B8BFF" : getStatusTone(lot)}
             title={lot.name}
             description={lot.zone ?? ""}
-            onPress={() => focusOnLot(lot)}
+            onPress={() => {
+              setFiltersExpanded(false);
+              focusOnLot(lot);
+            }}
           />
         ))}
       </MapView>
@@ -565,9 +603,15 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
         pointerEvents="none"
       />
 
+      <LinearGradient
+        colors={["transparent", "rgba(6,10,18,0.45)", "rgba(6,10,18,0.9)"]}
+        style={styles.bottomShade}
+        pointerEvents="none"
+      />
+
       <View style={styles.logoWrapper}>
         <Image
-          source={require("../../assets/black_logo.png")}
+          source={require("../../assets/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -594,6 +638,7 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
               onPress={() => {
                 setQuery("");
                 setShowSuggestions(false);
+                setSelectedLotId(null);
               }}
               hitSlop={8}
             >
@@ -789,7 +834,10 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
               <Pressable
                 key={lot.id}
                 style={styles.suggestionItem}
-                onPress={() => focusOnLot(lot)}
+                onPress={() => {
+                  setFiltersExpanded(false);
+                  focusOnLot(lot);
+                }}
               >
                 <View style={[styles.suggestionIcon, { backgroundColor: `${getStatusTone(lot)}22` }]}>
                   <Ionicons name="location" size={16} color={getStatusTone(lot)} />
@@ -810,7 +858,13 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
         )}
       </View>
 
-      <Pressable style={styles.locateButton} onPress={handleLocateMe}>
+      <Pressable
+        style={styles.locateButton}
+        onPress={() => {
+          setFiltersExpanded(false);
+          void handleLocateMe();
+        }}
+      >
         {refreshingLocation ? (
           <ActivityIndicator size="small" color="#0D1117" />
         ) : (
@@ -828,9 +882,9 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
           <View>
             <Text style={styles.resultsTitle}>{t("map.parkingSpotsFound", { count: filteredLots.length })}</Text>
           </View>
-          {userLocation ? (
+          {userLocation && filters.sortMode === "nearest" ? (
             <View style={styles.nearbyBadge}>
-              <Ionicons name="navigate" size={14} color="#0B8BFF" />
+              <Ionicons name="navigate" size={14} color="#0A4FA3" />
               <Text style={styles.nearbyBadgeText}>{t("map.nearbyMode")}</Text>
             </View>
           ) : null}
@@ -868,7 +922,10 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
                 <Pressable
                   key={lot.id}
                   style={[styles.lotCard, active && styles.lotCardActive]}
-                  onPress={() => focusOnLot(lot)}
+                  onPress={() => {
+                    setFiltersExpanded(false);
+                    focusOnLot(lot);
+                  }}
                 >
                   <LinearGradient
                     colors={active ? ["#101826", "#0F1828"] : ["#FFFFFF", "#F4F7FB"]}
@@ -885,7 +942,9 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
                       </View>
                       <View style={[styles.statusPill, { backgroundColor: `${getStatusTone(lot)}22` }]}>
                         <View style={[styles.statusDot, { backgroundColor: getStatusTone(lot) }]} />
-                        <Text style={[styles.statusText, { color: getStatusTone(lot) }]}>{lot.status}</Text>
+                        <Text style={[styles.statusText, { color: getStatusTone(lot) }]}>
+                          {getEffectiveStatus(lot)}
+                        </Text>
                       </View>
                     </View>
 
@@ -947,44 +1006,19 @@ export default function MapExplorer({ variant }: MapExplorerProps) {
           </ScrollView>
         )}
 
-        {variant === "guest" && (
-          <View style={styles.guestDock}>
-            <View style={styles.guestCopyWrap}>
-              <Text style={styles.guestTitle}>{t("map.reserveFaster")}</Text>
-              <Text style={styles.guestText}>
-                {t("map.reserveFasterText")}
-              </Text>
-            </View>
-
-            <View style={styles.guestActions}>
-              <Pressable onPress={() => router.replace("/(auth)/login")}>
-                <LinearGradient
-                  colors={["#3080FF", "#00358B", "#00358B", "#3080FF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.primaryGuestButton}
-                >
-                  <Text style={styles.primaryGuestButtonText}>{t("map.login")}</Text>
-                </LinearGradient>
-              </Pressable>
-              <Pressable style={styles.secondaryGuestButton} onPress={() => router.replace("/(auth)/register")}>
-                <Text style={styles.secondaryGuestButtonText}>{t("map.createAccount")}</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#DCE7F2" },
-  map: { ...StyleSheet.absoluteFillObject },
-  headerShade: { position: "absolute", top: 0, left: 0, right: 0, height: 220 },
-  logoWrapper: { position: "absolute", top: 56, left: 24 },
-  logo: { width: 136, height: 52 },
-  searchShell: { position: "absolute", top: 118, left: 18, right: 18, zIndex: 20 },
+   container: { flex: 1, backgroundColor: "#DCE7F2", alignItems:"center" },
+    map: { ...StyleSheet.absoluteFillObject },
+    headerShade: { position: "absolute", top: 0, left: 0, right: 0, height: 220 },
+    bottomShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 390 },
+    logoWrapper: { position: "absolute", top: 59},
+    logo: { width: 145, height: 55},
+  searchShell: { position: "absolute", top: 120, left: 18, right: 18, zIndex: 20 },
   searchBox: {
     minHeight: 58,
     borderRadius: 22,
@@ -1099,7 +1133,7 @@ const styles = StyleSheet.create({
     shadowColor: "#0B1324",
     shadowOpacity: 0.12,
     shadowRadius: 22,
-    elevation: 10,
+    elevation: 5,
   },
   suggestionItem: {
     flexDirection: "row",
@@ -1141,14 +1175,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 28,
-    backgroundColor: "rgba(10,16,26,0.88)",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },
   bottomOverlayAuth: { bottom: 86 },
   bottomOverlayGuest: { bottom: 0, paddingBottom: 20 },
-  resultsHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  resultsTitle: { color: "#F7FAFF", fontSize: 20, fontFamily: fonts.interSemiBold },
+  resultsHeader: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.76)",
+  },
+  resultsTitle: { color: "#0D1117", fontSize: 18, fontFamily: fonts.interSemiBold },
   resultsSubtitle: {
     marginTop: 4,
     color: "#A9B5C6",
@@ -1164,7 +1206,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: "rgba(11,139,255,0.14)",
   },
-  nearbyBadgeText: { color: "#B5DCFF", fontSize: 12, fontFamily: fonts.interSemiBold },
+  nearbyBadgeText: { color: "#0A4FA3", fontSize: 12, fontFamily: fonts.interSemiBold },
   inlineError: {
     marginTop: 12,
     marginBottom: 4,
@@ -1191,8 +1233,8 @@ const styles = StyleSheet.create({
   emptyTitle: { color: "#0D1117", fontSize: 16, fontFamily: fonts.interSemiBold },
   emptyText: { marginTop: 6, color: "#607086", fontSize: 13, fontFamily: fonts.interRegular },
   cardsRow: { gap: 12, paddingTop: 16 },
-  lotCard: { width: 286, borderRadius: 26, overflow: "hidden" },
-  lotCardActive: { transform: [{ translateY: -4 }] },
+  lotCard: { width: 350 , borderRadius: 26, overflow: "hidden", },
+  lotCardActive: { transform: [{ translateY: 0 }] },
   lotCardGradient: { minHeight: 196, padding: 16 },
   cardTopRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   cardTitleWrap: { flex: 1, paddingRight: 12 },
@@ -1229,29 +1271,4 @@ const styles = StyleSheet.create({
   detailsButtonActive: { backgroundColor: "#F7FAFF" },
   detailsButtonText: { color: "#0B8BFF", fontSize: 13, fontFamily: fonts.interSemiBold },
   detailsButtonTextActive: { color: "#09101C" },
-  guestDock: { marginTop: 16, padding: 16, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.08)" },
-  guestCopyWrap: { marginBottom: 14 },
-  guestTitle: { color: "#FFFFFF", fontSize: 16, fontFamily: fonts.interSemiBold },
-  guestText: { marginTop: 6, color: "#A9B5C6", fontSize: 13, fontFamily: fonts.interRegular },
-  guestActions: { flexDirection: "row", gap: 10 },
-  primaryGuestButton: {
-    minWidth: 124,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-  primaryGuestButtonText: { color: colors.white, fontSize: 14, fontFamily: fonts.interSemiBold },
-  secondaryGuestButton: {
-    flex: 1,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-  secondaryGuestButtonText: { color: "#FFFFFF", fontSize: 14, fontFamily: fonts.interSemiBold },
 });

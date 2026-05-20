@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -52,7 +53,7 @@ public class PaymentService {
         payment.setMethod(req.getMethod());
         payment.setProvider(req.getProvider());
         payment.setCurrency(req.getCurrency());
-        payment.setAmount(r.getTotalCost());
+        payment.setAmount(req.getAmount() != null ? req.getAmount() : r.getTotalCost());
         payment.setPlatformCommission(r.getPlatformCommission());
         payment.setOwnerEarnings(r.getOwnerRevenue());
         payment.setTransactionReference(req.getTransactionReference());
@@ -74,7 +75,7 @@ public class PaymentService {
                 r.getTotalCost(),
                 req.getCurrency());
         notificationService.record(driver, r,
-                com.keVend.backend.model.Notification.NotificationType.CHECK_IN_CONFIRMATION,
+                com.keVend.backend.model.Notification.NotificationType.RESERVATION_CONFIRMATION,
                 com.keVend.backend.model.Notification.NotificationChannel.PUSH, msg);
 
         return PaymentResponse.from(saved);
@@ -87,5 +88,13 @@ public class PaymentService {
             throw i18n.forbidden("error.payment.not_yours");
         }
         return PaymentResponse.from(p);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> myPayments(User caller) {
+        return paymentRepository.findByDriverIdOrderByPaidAtDescIdDesc(caller.getId())
+                .stream()
+                .map(PaymentResponse::from)
+                .toList();
     }
 }

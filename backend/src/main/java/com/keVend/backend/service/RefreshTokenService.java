@@ -75,6 +75,11 @@ public class RefreshTokenService {
         return stored.getUser();
     }
 
+    @Transactional
+    public void revokeAllTokens(User user) {
+        refreshTokenRepository.revokeAllByUser(user);
+    }
+
     private String generateRawToken() {
         byte[] bytes = new byte[48]; // 384 bits
         SECURE_RANDOM.nextBytes(bytes);
